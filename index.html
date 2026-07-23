@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gut Rush</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+#game-container { width: 800px; height: 600px; }
+</style>
+</head>
+<body>
+<div id="game-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+window.GutRush.FOODS = [
+  // === VEGETABLES ===
+  { id: 'peas', name: 'Peas', cat: 'Vegetables', coins: 6, fiber: 9, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'High fiber, great for bulk' },
+  { id: 'broccoli', name: 'Broccoli', cat: 'Vegetables', coins: 5, fiber: 5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Good fiber + nutrients' },
+  { id: 'brussels', name: 'Brussels Sprouts', cat: 'Vegetables', coins: 5, fiber: 4.5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Fiber-rich green veg' },
+  { id: 'carrots', name: 'Carrots', cat: 'Vegetables', coins: 4, fiber: 1.5, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Mild fiber, easy to digest' },
+  { id: 'corn', name: 'Sweet Corn', cat: 'Vegetables', coins: 4, fiber: 4, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Good fiber, passes through' },
+  { id: 'spinach', name: 'Leafy Greens', cat: 'Vegetables', coins: 5, fiber: 4, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Nutrient dense, mild fiber' },
+  { id: 'potato', name: 'Baked Potato', cat: 'Vegetables', coins: 5, fiber: 4, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Skin-on for max fiber' },
+  { id: 'cauliflower', name: 'Cauliflower', cat: 'Vegetables', coins: 3, fiber: 2, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Low calorie, mild fiber' },
+
+  // === FRUITS ===
+  { id: 'prunes', name: 'Prunes', cat: 'Fruits', coins: 10, fiber: 7, fat: 0, water: 1, sorbitol: 1, stimulant: 0, desc: 'Strong laxative effect + fiber!' },
+  { id: 'kiwi', name: 'Kiwifruit', cat: 'Fruits', coins: 8, fiber: 5, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Proven to increase stool frequency' },
+  { id: 'raspberries', name: 'Raspberries', cat: 'Fruits', coins: 8, fiber: 8, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: '8g fiber per cup!' },
+  { id: 'apple', name: 'Apple (with skin)', cat: 'Fruits', coins: 6, fiber: 4.5, fat: 0, water: 1, sorbitol: 0.5, stimulant: 0, desc: 'Pectin + sorbitol = gentle help' },
+  { id: 'pear', name: 'Pear', cat: 'Fruits', coins: 7, fiber: 5.5, fat: 0, water: 1, sorbitol: 0.5, stimulant: 0, desc: 'High fiber, mild sorbitol' },
+  { id: 'banana', name: 'Banana', cat: 'Fruits', coins: 5, fiber: 3, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Pectin fiber, gentle' },
+
+  // === JUNK FOOD ===
+  { id: 'burger', name: 'Burger', cat: 'Junk Food', coins: 4, fiber: 1, fat: 8, water: 0, sorbitol: 0, stimulant: 0, desc: 'High fat slows transit' },
+  { id: 'fries', name: 'French Fries', cat: 'Junk Food', coins: 3, fiber: 1, fat: 7, water: 0, sorbitol: 0, stimulant: 0, desc: 'Greasy, low fiber' },
+  { id: 'pizza', name: 'Pizza Slice', cat: 'Junk Food', coins: 4, fiber: 1, fat: 6, water: 0, sorbitol: 0, stimulant: 0, desc: 'Cheese + bread = slow' },
+  { id: 'cheese', name: 'Cheese', cat: 'Junk Food', coins: 3, fiber: 0, fat: 8, water: 0, sorbitol: 0, stimulant: 0, desc: 'Constipating dairy fat' },
+  { id: 'white_bread', name: 'White Bread', cat: 'Junk Food', coins: 2, fiber: 0.5, fat: 1, water: 0, sorbitol: 0, stimulant: 0, desc: 'Refined, near-zero fiber' },
+  { id: 'sausage', name: 'Sausage', cat: 'Junk Food', coins: 4, fiber: 0, fat: 9, water: 0, sorbitol: 0, stimulant: 0, desc: 'Processed meat, very fatty' },
+
+  // === DRINKS ===
+  { id: 'coffee', name: 'Coffee', cat: 'Drinks', coins: 8, fiber: 0, fat: 0, water: 1, sorbitol: 0, stimulant: 1, desc: 'Stimulates colon contractions!' },
+  { id: 'prune_juice', name: 'Prune Juice', cat: 'Drinks', coins: 10, fiber: 2, fat: 0, water: 2, sorbitol: 1, stimulant: 0, desc: 'Powerful natural laxative' },
+  { id: 'mag_water', name: 'Mineral Water', cat: 'Drinks', coins: 7, fiber: 0, fat: 0, water: 2, sorbitol: 0, stimulant: 0, desc: 'Magnesium = osmotic effect' },
+  { id: 'water', name: 'Plain Water', cat: 'Drinks', coins: 5, fiber: 0, fat: 0, water: 2, sorbitol: 0, stimulant: 0, desc: 'Essential for fiber to work' },
+  { id: 'soda', name: 'Soda', cat: 'Drinks', coins: 2, fiber: 0, fat: 0, water: 0, sorbitol: 0, stimulant: 0, desc: 'Empty calories, no help' },
+  { id: 'milk', name: 'Milk', cat: 'Drinks', coins: 4, fiber: 0, fat: 3, water: 1, sorbitol: 0, stimulant: 0, desc: 'Can constipate some people' },
+
+  // === GRAINS ===
+  { id: 'oatmeal', name: 'Oatmeal', cat: 'Grains', coins: 6, fiber: 4, fat: 1, water: 1, sorbitol: 0, stimulant: 0, desc: 'Soluble fiber, gentle bulk' },
+  { id: 'rye_bread', name: 'Rye Bread', cat: 'Grains', coins: 5, fiber: 4, fat: 0.5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Better than white bread!' },
+  { id: 'ww_pasta', name: 'Whole Wheat Pasta', cat: 'Grains', coins: 6, fiber: 6, fat: 1, water: 0, sorbitol: 0, stimulant: 0, desc: 'High fiber grain option' },
+  { id: 'brown_rice', name: 'Brown Rice', cat: 'Grains', coins: 5, fiber: 3.5, fat: 0.5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Whole grain, steady fiber' },
+
+  // === LEGUMES ===
+  { id: 'lentils', name: 'Lentils', cat: 'Legumes', coins: 9, fiber: 15.5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Massive fiber punch!' },
+  { id: 'black_beans', name: 'Black Beans', cat: 'Legumes', coins: 9, fiber: 15, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: '15g fiber, excellent bulk' },
+  { id: 'split_peas', name: 'Split Peas', cat: 'Legumes', coins: 8, fiber: 16, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: '16g fiber, very filling' },
+
+  // === FATS & SEEDS ===
+  { id: 'olive_oil', name: 'Olive Oil', cat: 'Fats/Seeds', coins: 7, fiber: 0, fat: 5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Stimulates bile flow' },
+  { id: 'chia', name: 'Chia Seeds', cat: 'Fats/Seeds', coins: 9, fiber: 10, fat: 3, water: 1, sorbitol: 0, stimulant: 0, desc: 'Gel-forming fiber bomb' },
+  { id: 'almonds', name: 'Almonds', cat: 'Fats/Seeds', coins: 6, fiber: 3.5, fat: 3, water: 0, sorbitol: 0, stimulant: 0, desc: 'Fiber + healthy fats' },
+];
+
+window.GutRush.DigestionEngine = class DigestionEngine {
+  static calculate(foods) {
+    if (!foods || foods.length === 0) {
+      return { bristolType: 1, difficulty: 'constipation', label: 'Type 1 - Hard Lumps', transitSpeed: 0.3, holdDuration: 7, scoreLabel: 'Constipation - No fiber intake!' };
+    }
+
+    let totalFiber = 0, totalFat = 0, totalWater = 0, hasSorbitol = 0, hasStimulant = 0;
+
+    for (const f of foods) {
+      totalFiber += f.fiber || 0;
+      totalFat += f.fat || 0;
+      totalWater += f.water || 0;
+      if (f.sorbitol) hasSorbitol = 1;
+      if (f.stimulant) hasStimulant = 1;
+    }
+
+    let bristolType;
+    let difficulty;
+    let label;
+    let transitSpeed;
+    let holdDuration;
+    let scoreLabel;
+
+    const fiberScore = totalFiber;
+    const fatScore = totalFat;
+
+    if (hasSorbitol && hasStimulant) {
+      if (fiberScore >= 20 && fatScore < 8) {
+        bristolType = 6; difficulty = 'diarrhea'; label = 'Type 6 - Fluffy & mushy (Diarrhea)'; transitSpeed = 2.0; holdDuration = 1;
+        scoreLabel = 'Too fast! Fiber + stimulants + sorbitol rushed things';
+      } else {
+        bristolType = 7; difficulty = 'diarrhea'; label = 'Type 7 - Watery (Diarrhea)'; transitSpeed = 2.5; holdDuration = 0.5;
+        scoreLabel = 'Emergency! Sorbitol + stimulants = rush to the toilet';
+      }
+    } else if (fiberScore >= 30 && totalWater < 2) {
+      bristolType = 1; difficulty = 'constipation'; label = 'Type 1 - Hard lumps (Constipation)'; transitSpeed = 0.3; holdDuration = 7;
+      scoreLabel = 'Paradoxical! High fiber but no water = concrete-like stool';
+    } else if (fiberScore >= 25 && (hasSorbitol || hasStimulant)) {
+      bristolType = 5; difficulty = 'diarrhea'; label = 'Type 5 - Soft blobs (Loose)'; transitSpeed = 1.8; holdDuration = 1.5;
+      scoreLabel = 'Loose stool - too much fiber combined with sorbitol or stimulants';
+    } else if (fiberScore >= 10 && hasSorbitol) {
+      bristolType = 5; difficulty = 'diarrhea'; label = 'Type 5 - Soft blobs'; transitSpeed = 1.5; holdDuration = 2;
+      scoreLabel = 'Fiber + sorbitol made things loose';
+    } else if (fiberScore >= 20 && fatScore < 5) {
+      bristolType = 3; difficulty = 'normal'; label = 'Type 3 - Sausage with cracks (Ideal)'; transitSpeed = 1.0; holdDuration = 2;
+      scoreLabel = 'Ideal! Well-balanced high fiber intake';
+    } else if (fiberScore >= 15 && fatScore < 8) {
+      bristolType = 4; difficulty = 'normal'; label = 'Type 4 - Smooth & soft (Ideal)'; transitSpeed = 1.0; holdDuration = 2;
+      scoreLabel = 'Great! Smooth and healthy stool';
+    } else if (fiberScore < 5 && fatScore >= 10) {
+      bristolType = 1; difficulty = 'constipation'; label = 'Type 1 - Hard lumps (Constipation)'; transitSpeed = 0.2; holdDuration = 8;
+      scoreLabel = 'Constipation - Too much junk food, no fiber';
+    } else if (fiberScore >= 15 && fatScore >= 8) {
+      bristolType = 2; difficulty = 'constipation'; label = 'Type 2 - Lumpy sausage'; transitSpeed = 0.4; holdDuration = 5;
+      scoreLabel = 'Fat slowed things down despite decent fiber';
+    } else if (fiberScore < 8 && fatScore >= 5) {
+      bristolType = 2; difficulty = 'constipation'; label = 'Type 2 - Lumpy sausage (Constipation)'; transitSpeed = 0.35; holdDuration = 6;
+      scoreLabel = 'Constipated - Low fiber, high fat diet';
+    } else if (fiberScore >= 10 && fiberScore < 15) {
+      bristolType = 3; difficulty = 'normal'; label = 'Type 3 - Sausage with cracks'; transitSpeed = 0.8; holdDuration = 3;
+      scoreLabel = 'Decent! Moderate fiber gave a reasonable result';
+    } else if (fiberScore >= 8 && fiberScore < 10) {
+      bristolType = 3; difficulty = 'normal'; label = 'Type 3 - Sausage with cracks'; transitSpeed = 0.7; holdDuration = 3;
+      scoreLabel = 'Moderate fiber, decent result';
+    } else {
+      bristolType = 2; difficulty = 'constipation'; label = 'Type 2 - Lumpy sausage'; transitSpeed = 0.4; holdDuration = 5;
+      scoreLabel = 'Suboptimal - try eating more fiber-rich foods next time';
+    }
+
+    return { bristolType, difficulty, label, transitSpeed, holdDuration, scoreLabel, totalFiber, totalFat, totalWater, hasSorbitol, hasStimulant, foodCount: foods.length };
+  }
+};
+
+window.GutRush.ScoreCalculator = class ScoreCalculator {
+  static calculate(result, tapPerformance) {
+    const { bristolType, totalFiber, totalFat, totalWater } = result;
+    const maxTap = tapPerformance || 0;
+
+    let shapeScore = 0;
+    if (bristolType === 3 || bristolType === 4) shapeScore = 25;
+    else if (bristolType === 5) shapeScore = 18;
+    else if (bristolType === 2) shapeScore = 12;
+    else if (bristolType === 1) shapeScore = 5;
+    else if (bristolType === 6) shapeScore = 10;
+    else if (bristolType === 7) shapeScore = 3;
+
+    let sizeScore = 0;
+    const foodCount = result.foodCount || 1;
+    if (foodCount >= 8) sizeScore = 25;
+    else if (foodCount >= 6) sizeScore = 20;
+    else if (foodCount >= 4) sizeScore = 15;
+    else if (foodCount >= 2) sizeScore = 10;
+    else sizeScore = 5;
+
+    let consistencyScore = 0;
+    const fiberRatio = totalFiber / Math.max(1, totalFiber + totalFat);
+    if (fiberRatio > 0.7 && totalWater >= 1) consistencyScore = 25;
+    else if (fiberRatio > 0.5 && totalWater >= 1) consistencyScore = 20;
+    else if (fiberRatio > 0.3) consistencyScore = 12;
+    else if (totalFat > totalFiber) consistencyScore = 5;
+    else consistencyScore = 10;
+
+    let controlScore = 0;
+    if (maxTap >= 12) controlScore = 25;
+    else if (maxTap >= 8) controlScore = 20;
+    else if (maxTap >= 5) controlScore = 15;
+    else if (maxTap >= 2) controlScore = 10;
+    else controlScore = 5;
+
+    return {
+      shapeScore,
+      sizeScore,
+      consistencyScore,
+      controlScore,
+      total: shapeScore + sizeScore + consistencyScore + controlScore,
+      breakdown: [
+        { name: 'Shape', score: shapeScore, max: 25, detail: bristolType === 3 || bristolType === 4 ? 'Ideal Bristol type!' : `Bristol Type ${bristolType} - not optimal` },
+        { name: 'Size/Amount', score: sizeScore, max: 25, detail: foodCount >= 6 ? 'Good variety of foods' : 'Too few food items' },
+        { name: 'Consistency', score: consistencyScore, max: 25, detail: fiberRatio > 0.5 && totalWater >= 1 ? 'Good fiber-water balance' : fiberRatio > 0.3 ? 'Moderate balance' : 'Poor fiber-water balance' },
+        { name: 'Passage Control', score: controlScore, max: 25, detail: maxTap >= 8 ? 'Great tapping!' : 'Could tap faster' },
+      ]
+    };
+  }
+};
+
+window.GutRush.PvPManager = class PvPManager {
+  static generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  }
+
+  static saveScore(code, playerName, score, breakdown, result) {
+    const key = `gr_pvp_${code}`;
+    const data = JSON.parse(localStorage.getItem(key) || '{}');
+    if (!data.player1) {
+      data.player1 = { name: playerName, score, breakdown, result };
+    } else if (!data.player2) {
+      data.player2 = { name: playerName, score, breakdown, result };
+    } else {
+      return false;
+    }
+    localStorage.setItem(key, JSON.stringify(data));
+    return true;
+  }
+
+  static getMatch(code) {
+    const key = `gr_pvp_${code}`;
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  }
+
+  static getWinner(match) {
+    if (!match || !match.player1 || !match.player2) return null;
+    if (match.player1.score > match.player2.score) return match.player1;
+    if (match.player2.score > match.player1.score) return match.player2;
+    return null;
+  }
+};
+
+window.GutRush.BootScene = class BootScene extends Phaser.Scene {
+  constructor() { super('BootScene'); }
+
+  preload() {
+    this.load.image('bolus', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAALUlEQVRIiWNgYPj/n4EBBJgYKAQMowUMowUMowUMowUMowUMowWMBQsAAMhNBR5dydtcAAAAAElFTkSuQmCC');
+    this.load.image('star', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAnUlEQVRYhe2VMQrCQBBF30a8gJfwWl7Ny3gFr+AltZBEsZJUthHc+QcpBkRBMH98eLPzZ4f9AwBgS612B/AGGMC5j84APAAVfjoM4AWo8dNhAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH8IYHysLEcMCAAAAAElFTkSuQmCC');
+  }
+
+  create() {
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+
+    this.add.text(w / 2, h / 2 - 40, 'GUT RUSH', { fontSize: '48px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+    this.add.text(w / 2, h / 2 + 20, 'Tap to start', { fontSize: '18px', fill: '#fff', fontFamily: 'monospace' }).setOrigin(0.5);
+
+    this.input.once('pointerdown', () => {
+      this.scene.start('ShopScene');
+    });
+  }
+};
+
+window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
+  constructor() { super('ShopScene'); }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    const w = 800, h = 600;
+    this.coins = 100;
+    this.cart = [];
+    this.foods = [...window.GutRush.FOODS];
+
+    this.add.text(w / 2, 20, 'GUT RUSH - Food Shop', { fontSize: '28px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    this.coinText = this.add.text(w / 2, 50, '', { fontSize: '20px', fill: '#FFD700', fontFamily: 'monospace' }).setOrigin(0.5);
+    this.cartText = this.add.text(10, 560, '', { fontSize: '14px', fill: '#aaa', fontFamily: 'monospace' });
+    this.updateUI();
+
+    this.add.text(w / 2, 575, 'Click food to buy | "Start Digestion" to begin', { fontSize: '13px', fill: '#666', fontFamily: 'monospace' }).setOrigin(0.5);
+
+    this.startBtn = this.add.text(w / 2, 530, '[ Start Digestion! ]', { fontSize: '22px', fill: '#555', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    const catColors = {
+      'Vegetables': 0x4CAF50, 'Fruits': 0xFF9800, 'Junk Food': 0xf44336,
+      'Drinks': 0x2196F3, 'Grains': 0xCD853F, 'Legumes': 0x8BC34A, 'Fats/Seeds': 0xFFE0B2
+    };
+
+    const cols = 5;
+    const cardW = 150, cardH = 110;
+    const startX = 25, startY = 85;
+    const gapX = 8, gapY = 8;
+
+    this.foodCards = [];
+
+    this.foods.forEach((food, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (cardW + gapX);
+      const y = startY + row * (cardH + gapY);
+
+      const bg = this.add.rectangle(x + cardW / 2, y + cardH / 2, cardW, cardH, 0x16213e, 0.9).setStrokeStyle(1, 0x0f3460);
+      const catBox = this.add.rectangle(x + 5, y + 5, cardW - 10, 16, catColors[food.cat] || 0x888888, 0.8).setOrigin(0, 0);
+      const catText = this.add.text(x + cardW / 2, y + 8, food.cat, { fontSize: '9px', fill: '#fff', fontFamily: 'monospace' }).setOrigin(0.5);
+
+      const color = catColors[food.cat] || 0x888888;
+      const icon = this.add.graphics();
+      icon.fillStyle(color, 1);
+      icon.fillRoundedRect(x + 8, y + 24, 48, 48, 6);
+      icon.fillStyle(0xffffff, 0.2);
+      icon.fillRect(x + 12, y + 28, 40, 40);
+
+      const nameText = this.add.text(x + 64, y + 28, food.name, { fontSize: '12px', fill: '#fff', fontFamily: 'monospace', fontStyle: 'bold' });
+      const fiberText = this.add.text(x + 64, y + 44, `Fiber: ${food.fiber}g`, { fontSize: '10px', fill: '#8BC34A', fontFamily: 'monospace' });
+      const costText = this.add.text(x + 64, y + 58, `${food.coins} coins`, { fontSize: '10px', fill: '#FFD700', fontFamily: 'monospace' });
+
+      const hitArea = this.add.zone(x + cardW / 2, y + cardH / 2, cardW, cardH).setInteractive({ useHandCursor: true });
+
+      const ownedBadge = this.add.text(x + cardW - 28, y + cardH - 18, '', { fontSize: '16px', fill: '#4CAF50', fontFamily: 'monospace' }).setOrigin(0.5);
+
+      const card = { food, bg, catBox, catText, icon, nameText, fiberText, costText, hitArea, ownedBadge, x, y, cardW, cardH };
+      this.foodCards.push(card);
+
+      hitArea.on('pointerdown', () => this.buyFood(food, card));
+      hitArea.on('pointerover', () => { if (!this.cart.includes(food)) bg.setFillStyle(0x1a3a5c, 0.9); });
+      hitArea.on('pointerout', () => { if (!this.cart.includes(food)) bg.setFillStyle(0x16213e, 0.9); });
+    });
+  }
+
+  updateUI() {
+    this.coinText.setText(`Coins: ${this.coins}`);
+    if (this.cart.length === 0) {
+      this.cartText.setText('Cart: empty');
+    } else {
+      const names = this.cart.map(f => f.name).join(', ');
+      const totalFiber = this.cart.reduce((s, f) => s + (f.fiber || 0), 0);
+      this.cartText.setText(`Cart: ${names} | Total fiber: ${totalFiber}g`);
+    }
+    if (this.cart.length > 0) {
+      this.startBtn.setFill('#e94560');
+      this.startBtn.removeAllListeners('pointerdown');
+      this.startBtn.on('pointerdown', () => this.startDigestion());
+    } else {
+      this.startBtn.setFill('#555');
+    }
+  }
+
+  buyFood(food, card) {
+    if (this.cart.includes(food)) return;
+    if (this.coins < food.coins) {
+      const flash = this.add.text(this.coinText.x, this.coinText.y + 25, 'Not enough coins!', { fontSize: '12px', fill: '#f44336', fontFamily: 'monospace' }).setOrigin(0.5);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 1000, onComplete: () => flash.destroy() });
+      return;
+    }
+    this.coins -= food.coins;
+    this.cart.push(food);
+    card.bg.setFillStyle(0x1a3a2e, 0.9);
+    card.ownedBadge.setText('✓');
+    this.updateUI();
+  }
+
+  startDigestion() {
+    if (this.cart.length === 0) return;
+    this.scene.start('EatScene', { foods: this.cart, coins: this.coins });
+  }
+};
+
+window.GutRush.EatScene = class EatScene extends Phaser.Scene {
+  constructor() { super('EatScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.coinsLeft = data.coins || 0;
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    const w = 800, h = 600;
+    this.currentIndex = 0;
+
+    this.add.text(w / 2, 30, 'Eating Time!', { fontSize: '32px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    const faceG = this.add.graphics();
+    faceG.fillStyle(0xFFDBAC, 1);
+    faceG.fillCircle(w / 2, h / 2 - 40, 80);
+    faceG.fillStyle(0x000, 1);
+    faceG.fillCircle(w / 2 - 25, h / 2 - 55, 8);
+    faceG.fillCircle(w / 2 + 25, h / 2 - 55, 8);
+    faceG.fillStyle(0xFF6B6B, 1);
+    faceG.fillCircle(w / 2, h / 2 - 30, 10);
+    faceG.fillStyle(0x8B0000, 1);
+    faceG.fillRect(w / 2 - 30, h / 2 - 5, 60, 20);
+
+    this.foodNameText = this.add.text(w / 2, h - 80, '', { fontSize: '24px', fill: '#fff', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+    this.descText = this.add.text(w / 2, h - 50, '', { fontSize: '14px', fill: '#aaa', fontFamily: 'monospace' }).setOrigin(0.5);
+
+    this.progressText = this.add.text(w / 2, h - 20, '', { fontSize: '12px', fill: '#666', fontFamily: 'monospace' }).setOrigin(0.5);
+
+    if (this.foods.length > 0) {
+      this.showNextFood();
+    } else {
+      this.scene.start('DigestionScene', { foods: [], coinsLeft: this.coinsLeft });
+    }
+  }
+
+  showNextFood() {
+    const w = 800, h = 600;
+    if (this.currentIndex >= this.foods.length) {
+      this.time.delayedCall(500, () => {
+        this.scene.start('DigestionScene', { foods: this.foods, coinsLeft: this.coinsLeft });
+      });
+      return;
+    }
+
+    const food = this.foods[this.currentIndex];
+    this.foodNameText.setText(`Eating: ${food.name}`);
+    this.descText.setText(food.desc || '');
+    this.progressText.setText(`Food ${this.currentIndex + 1} of ${this.foods.length}`);
+
+    const colorMap = {
+      'Vegetables': 0x4CAF50, 'Fruits': 0xFF9800, 'Junk Food': 0xf44336,
+      'Drinks': 0x2196F3, 'Grains': 0xCD853F, 'Legumes': 0x8BC34A, 'Fats/Seeds': 0xFFE0B2
+    };
+    const color = colorMap[food.cat] || 0x888888;
+
+    const foodIcon = this.add.graphics();
+    foodIcon.fillStyle(color, 1);
+    foodIcon.fillRoundedRect(w / 2 - 24, h / 2 - 100, 48, 48, 6);
+    foodIcon.fillStyle(0xffffff, 0.2);
+    foodIcon.fillRect(w / 2 - 20, h / 2 - 96, 40, 40);
+
+    this.tweens.add({
+      targets: foodIcon,
+      y: 260,
+      alpha: 0,
+      scale: 0.3,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => {
+        foodIcon.destroy();
+        this.currentIndex++;
+        this.time.delayedCall(200, () => this.showNextFood());
+      }
+    });
+  }
+};
+
+window.GutRush.DigestionScene = class DigestionScene extends Phaser.Scene {
+  constructor() { super('DigestionScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.coinsLeft = data.coins || 0;
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#0a0a1a');
+    const w = 800, h = 600;
+    this.tapCount = 0;
+    this.canTap = true;
+
+    this.result = window.GutRush.DigestionEngine.calculate(this.foods);
+
+    this.add.text(w / 2, 15, 'Digestion Passage', { fontSize: '22px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+    this.add.text(w / 2, 38, `Speed: ${this.result.transitSpeed < 0.5 ? 'Slow (constipation)' : this.result.transitSpeed > 1.5 ? 'Fast (diarrhea)' : 'Normal'}`, { fontSize: '12px', fill: '#aaa', fontFamily: 'monospace' }).setOrigin(0.5);
+    this.tapText = this.add.text(10, 575, 'Tap screen to speed up peristalsis!', { fontSize: '13px', fill: '#FFD700', fontFamily: 'monospace' });
+
+    this.organLabels = [];
+
+    const organs = [
+      { name: 'Mouth', y: 65, x: w / 2 },
+      { name: 'Esophagus', y: 120, x: w / 2 + 10 },
+      { name: 'Stomach', y: 200, x: w / 2 + 5 },
+      { name: 'Duodenum', y: 255, x: w / 2 - 30 },
+      { name: 'Jejunum', y: 310, x: w / 2 - 50 },
+      { name: 'Ileum', y: 355, x: w / 2 - 40 },
+      { name: 'Ascending Colon', y: 390, x: w / 2 - 30 },
+      { name: 'Transverse Colon', y: 420, x: w / 2 + 20 },
+      { name: 'Descending Colon', y: 460, x: w / 2 + 40 },
+      { name: 'Sigmoid Colon', y: 500, x: w / 2 + 10 },
+      { name: 'Rectum', y: 540, x: w / 2 },
+    ];
+
+    const tractG = this.add.graphics();
+
+    tractG.lineStyle(4, 0x4a4a6a, 0.7);
+    tractG.strokeCircle(w / 2, 65, 45);
+
+    tractG.lineStyle(3, 0x4a4a6a, 0.7);
+    tractG.beginPath();
+    tractG.moveTo(w / 2 + 45, 65);
+    tractG.lineTo(organs[1].x, organs[1].y);
+    tractG.strokePath();
+
+    for (let i = 1; i < organs.length - 1; i++) {
+      tractG.lineStyle(3, 0x4a4a6a, 0.6);
+      tractG.beginPath();
+      tractG.moveTo(organs[i].x, organs[i].y);
+      tractG.lineTo(organs[i + 1].x, organs[i + 1].y);
+      tractG.strokePath();
+    }
+
+    const stomachW = 70, stomachH = 50;
+    tractG.lineStyle(3, 0x5a5a7a, 0.8);
+    tractG.fillStyle(0x1a1a3a, 0.4);
+    tractG.fillEllipse(organs[2].x, organs[2].y, stomachW, stomachH);
+    tractG.strokeEllipse(organs[2].x, organs[2].y, stomachW, stomachH);
+
+    const colonW = 45, colonH = 25;
+    const colonColor = 0x2a2a4a;
+    tractG.fillStyle(colonColor, 0.4);
+    tractG.fillEllipse(organs[7].x, organs[7].y, colonW, colonH);
+    tractG.lineStyle(2, 0x5a5a7a, 0.6);
+    tractG.strokeEllipse(organs[7].x, organs[7].y, colonW, colonH);
+
+    organs.forEach((org, i) => {
+      const side = i < 6 ? -1 : 1;
+      const lbl = this.add.text(org.x + side * 55, org.y, `→ ${org.name}`, {
+        fontSize: '10px', fill: '#0f0', fontFamily: 'monospace', fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0);
+      this.organLabels.push(lbl);
+    });
+
+    if (this.textures.exists('bolus')) {
+      this.bolus = this.add.image(organs[0].x + 45, organs[0].y, 'bolus').setScale(0.8);
+    } else {
+      this.bolus = this.add.circle(organs[0].x + 45, organs[0].y, 10, 0x8B4513).setScale(0.8);
+    }
+    this.bolusPath = organs;
+    this.pathIndex = 0;
+    this.pathProgress = 0;
+
+    this.tapZone = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
+    this.tapZone.on('pointerdown', () => {
+      this.tapCount++;
+      this.tapText.setText(`Taps: ${this.tapCount} | Speed: ${this.result.transitSpeed + this.tapCount * 0.02}x`);
+    });
+
+    this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => this.updateBolus()
+    });
+  }
+
+  updateBolus() {
+    const speed = this.result.transitSpeed + this.tapCount * 0.015;
+    this.pathProgress += speed * 0.002;
+
+    if (this.pathProgress >= 1) {
+      this.canTap = false;
+      this.tapText.setText('Proceeding to elimination...');
+      this.time.delayedCall(800, () => {
+        this.scene.start('PopScene', { foods: this.foods, result: this.result, tapCount: this.tapCount, coinsLeft: this.coinsLeft });
+      });
+      return;
+    }
+
+    const totalSegments = this.bolusPath.length;
+    const floatIdx = this.pathProgress * (totalSegments - 1);
+    const idxA = Math.floor(floatIdx);
+    const idxB = Math.min(idxA + 1, totalSegments - 1);
+    const t = floatIdx - idxA;
+
+    const ptA = this.bolusPath[idxA];
+    const ptB = this.bolusPath[idxB];
+
+    if (ptA && ptB && idxA < totalSegments) {
+      this.bolus.x = Phaser.Math.Linear(ptA.x, ptB.x, t);
+      this.bolus.y = Phaser.Math.Linear(ptA.y, ptB.y, t);
+
+      if (idxA >= 0 && idxA < this.organLabels.length) {
+        this.organLabels[idxA].setAlpha(Math.min(1, this.organLabels[idxA].alpha + 0.05));
+      }
+    }
+  }
+};
+
+window.GutRush.PopScene = class PopScene extends Phaser.Scene {
+  constructor() { super('PopScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.result = data.result || window.GutRush.DigestionEngine.calculate(this.foods);
+    this.tapCount = data.tapCount || 0;
+    this.coinsLeft = data.coins || 0;
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#0a0a0a');
+    const w = 800, h = 600;
+    this.popProgress = 0;
+    this.isHolding = false;
+    this.holdStart = 0;
+    this.cumulativeHold = 0;
+    this.holdRequired = (this.result.holdDuration || 3) * 1000;
+    this.popped = false;
+    this.difficulty = this.result.difficulty || 'normal';
+    this.elapsed = 0;
+
+    const toiletG = this.add.graphics();
+
+    toiletG.fillStyle(0x333333, 1);
+    toiletG.fillRoundedRect(w / 2 - 70, h / 2 - 60, 140, 180, 20);
+    toiletG.fillStyle(0x555555, 1);
+    toiletG.fillRoundedRect(w / 2 - 60, h / 2 - 50, 120, 160, 15);
+    toiletG.fillStyle(0x1a1a1a, 1);
+    toiletG.fillRoundedRect(w / 2 - 50, h / 2 - 40, 100, 140, 10);
+
+    toiletG.fillStyle(0x444444, 1);
+    toiletG.fillRect(w / 2 - 90, h / 2 + 80, 180, 30);
+    toiletG.fillRect(w / 2 - 80, h / 2 + 75, 160, 15);
+
+    toiletG.fillStyle(0x555555, 1);
+    toiletG.fillRect(w / 2 - 20, h / 2 + 110, 40, 60);
+
+    toiletG.lineStyle(2, 0x666666, 0.5);
+    toiletG.strokeRoundedRect(w / 2 - 50, h / 2 - 40, 100, 140, 10);
+
+    this.holdText = this.add.text(w / 2, h / 2 - 110, '', {
+      fontSize: '36px', fill: '#FF0000', fontFamily: 'monospace', fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0);
+
+    this.timerText = this.add.text(w / 2, h / 2 + 170, '15s', {
+      fontSize: '14px', fill: '#666', fontFamily: 'monospace'
+    }).setOrigin(0.5);
+
+    this.statusText = this.add.text(w / 2, h / 2 + 150, '', {
+      fontSize: '13px', fill: '#aaa', fontFamily: 'monospace'
+    }).setOrigin(0.5);
+
+    this.poopG = this.add.graphics();
+
+    this.infoText = this.add.text(w / 2, h / 2 + 190, '', {
+      fontSize: '11px', fill: '#555', fontFamily: 'monospace'
+    }).setOrigin(0.5);
+
+    this.progressBarBg = this.add.rectangle(w / 2, h / 2 + 130, 200, 10, 0x333333).setOrigin(0.5);
+    this.progressBar = this.add.rectangle(w / 2 - 100, h / 2 + 130, 0, 8, 0x4CAF50).setOrigin(0, 0.5);
+
+    const difficultyText = this.difficulty === 'constipation' ? 'Constipation - Hold & push hard!' :
+                           this.difficulty === 'diarrhea' ? 'Diarrhea - Try to hold it!' :
+                           'Normal - Easy passage';
+    this.add.text(w / 2, 20, difficultyText, { fontSize: '15px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    this.input.on('pointerdown', () => {
+      if (this.popped) return;
+      this.isHolding = true;
+      this.holdStart = this.time.now;
+      this.holdText.setAlpha(1);
+    });
+
+    this.input.on('pointerup', () => {
+      if (this.popped) return;
+      if (this.isHolding && this.holdStart > 0) {
+        if (this.difficulty === 'constipation') {
+          this.cumulativeHold += this.time.now - this.holdStart;
+        }
+      }
+      this.isHolding = false;
+      this.holdText.setAlpha(0);
+      if (this.difficulty === 'diarrhea') {
+        this.popped = true;
+        this.statusText.setText('Couldn\'t hold it!');
+        this.time.delayedCall(800, () => this.finishPop());
+      }
+    });
+
+    let startTime = this.time.now;
+    this.timer = this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        this.elapsed = this.time.now - startTime;
+        const remaining = Math.max(0, 15 - this.elapsed / 1000);
+        this.timerText.setText(`${remaining.toFixed(1)}s`);
+
+        if (this.isHolding && !this.popped) {
+          const holdElapsed = this.time.now - this.holdStart;
+          let totalHold;
+          if (this.difficulty === 'constipation') {
+            totalHold = this.cumulativeHold + holdElapsed;
+          } else {
+            totalHold = holdElapsed;
+          }
+          const progress = Math.min(1, totalHold / this.holdRequired);
+          this.progressBar.width = 200 * progress;
+
+          if (this.difficulty === 'constipation') {
+            this.holdText.setText('PUSH!');
+            this.holdText.setFill('#FF6B00');
+          } else if (this.difficulty === 'diarrhea') {
+            this.holdText.setText('HOLD!');
+            this.holdText.setFill('#FF0000');
+          } else {
+            this.holdText.setText('Release!');
+            this.holdText.setFill('#4CAF50');
+          }
+
+          if (this.difficulty !== 'diarrhea' && progress >= 1 && !this.popped) {
+            this.popped = true;
+            this.holdText.setText('POP!');
+            this.holdText.setFill('#FFD700');
+            this.time.delayedCall(500, () => this.finishPop());
+          }
+        }
+
+        if (this.elapsed > 15000 && !this.popped) {
+          this.popped = true;
+          this.statusText.setText('Time up!');
+          this.time.delayedCall(500, () => this.finishPop());
+        }
+
+        this.updatePoopVisual();
+      }
+    });
+  }
+
+  updatePoopVisual() {
+    this.poopG.clear();
+
+    if (this.popped) return;
+
+    const w = 800, h = 600;
+    const baseY = h / 2 + 60;
+    const type = this.result.bristolType;
+
+    if (this.isHolding) {
+      const holdElapsed = this.time.now - this.holdStart;
+      const totalForPop = this.difficulty === 'constipation' ? this.cumulativeHold + holdElapsed : holdElapsed;
+      const popAmount = Math.min(1, totalForPop / this.holdRequired);
+
+      this.poopG.fillStyle(0x5D3A1A, 1);
+      if (type === 1 || type === 2) {
+        for (let i = 0; i < 3 + type * 2; i++) {
+          this.poopG.fillCircle(w / 2 - 20 + i * 15, baseY - 10 - popAmount * 20, 6 + popAmount * 4);
+        }
+      } else if (type === 3 || type === 4) {
+        this.poopG.fillRoundedRect(w / 2 - 30, baseY - 8 - popAmount * 30, 60 + popAmount * 20, 16 + popAmount * 20, 8);
+      } else if (type === 5 || type === 6) {
+        for (let i = 0; i < 4; i++) {
+          this.poopG.fillCircle(w / 2 - 25 + i * 17, baseY - popAmount * 15, 8);
+        }
+      } else {
+        this.poopG.fillCircle(w / 2, baseY, 15 + popAmount * 10);
+        this.poopG.fillStyle(0x8B6914, 0.5);
+        this.poopG.fillCircle(w / 2, baseY + 20, 20 + popAmount * 15);
+      }
+    }
+
+    
+  }
+
+  finishPop() {
+    if (this.timer) this.timer.destroy();
+    this.scene.start('ScoreScene', { foods: this.foods, result: this.result, tapCount: this.tapCount, coinsLeft: this.coinsLeft });
+  }
+};
+
+window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
+  constructor() { super('ScoreScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.result = data.result || {};
+    this.tapCount = data.tapCount || 0;
+    this.coinsLeft = data.coins || 0;
+    this.score = window.GutRush.ScoreCalculator.calculate(this.result, this.tapCount);
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    const w = 800, h = 600;
+
+    this.add.text(w / 2, 20, 'RESULTS', { fontSize: '32px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    const totalCircleX = w / 2, totalCircleY = 100;
+    const circG = this.add.graphics();
+    circG.lineStyle(4, 0x333333, 1);
+    circG.strokeCircle(totalCircleX, totalCircleY, 40);
+    const pct = this.score.total / 100;
+    const scoreColor = this.score.total >= 80 ? 0x4CAF50 : this.score.total >= 50 ? 0xFF9800 : 0xf44336;
+    circG.lineStyle(4, scoreColor, 1);
+    circG.beginPath();
+    circG.arc(totalCircleX, totalCircleY, 40, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct, false);
+    circG.strokePath();
+    const scoreColorStr = this.score.total >= 80 ? '#4CAF50' : this.score.total >= 50 ? '#FF9800' : '#f44336';
+    this.add.text(totalCircleX, totalCircleY, `${this.score.total}`, { fontSize: '28px', fill: scoreColorStr, fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    const grade = this.score.total >= 90 ? 'S' : this.score.total >= 80 ? 'A' : this.score.total >= 70 ? 'B' : this.score.total >= 60 ? 'C' : this.score.total >= 50 ? 'D' : 'F';
+    const gradeColors = { 'S': '#FFD700', 'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FF9800', 'D': '#FF6B00', 'F': '#f44336' };
+    this.add.text(w / 2, 145, `Grade: ${grade}`, { fontSize: '18px', fill: gradeColors[grade] || '#fff', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5);
+
+    this.add.text(w / 2, 170, `Bristol Type: ${this.result.label || 'Unknown'}`, { fontSize: '12px', fill: '#aaa', fontFamily: 'monospace' }).setOrigin(0.5);
+    this.add.text(w / 2, 185, `Taps: ${this.tapCount}`, { fontSize: '12px', fill: '#aaa', fontFamily: 'monospace' }).setOrigin(0.5);
+
+    const startY = 210;
+    this.score.breakdown.forEach((item, i) => {
+      const y = startY + i * 40;
+      this.add.text(30, y, `${item.name}: ${item.score}/${item.max}`, { fontSize: '15px', fill: '#fff', fontFamily: 'monospace' });
+      const barBg = this.add.rectangle(250, y + 8, 200, 12, 0x333333).setOrigin(0, 0.5);
+      const barWidth = 200 * (item.score / item.max);
+      const barColor = item.score >= 20 ? 0x4CAF50 : item.score >= 12 ? 0xFF9800 : 0xf44336;
+      this.add.rectangle(250, y + 8, barWidth, 10, barColor).setOrigin(0, 0.5);
+      this.add.text(470, y, item.detail, { fontSize: '10px', fill: '#888', fontFamily: 'monospace', wordWrap: { width: 300 } });
+    });
+
+    let yOffset = startY + 170;
+    this.add.text(w / 2, yOffset, '--- What Happened ---', { fontSize: '14px', fill: '#e94560', fontFamily: 'monospace' }).setOrigin(0.5);
+    yOffset += 25;
+
+    const explanation = this.result.scoreLabel || 'No data';
+    this.add.text(w / 2, yOffset, explanation, { fontSize: '13px', fill: '#FFD700', fontFamily: 'monospace', wordWrap: { width: 700 }, align: 'center' }).setOrigin(0.5);
+    yOffset += 25;
+
+    const fiberTotal = this.result.totalFiber || 0;
+    const fatTotal = this.result.totalFat || 0;
+    this.add.text(w / 2, yOffset, `Total Fiber: ${fiberTotal.toFixed(1)}g | Total Fat: ${fatTotal.toFixed(1)}g | Foods Eaten: ${this.foods.length}`, {
+      fontSize: '11px', fill: '#aaa', fontFamily: 'monospace'
+    }).setOrigin(0.5);
+    yOffset += 25;
+
+    if (this.foods.length > 0) {
+      const foodList = this.foods.map(f => f.name).join(', ');
+      this.add.text(w / 2, yOffset, `Your meal: ${foodList}`, { fontSize: '10px', fill: '#666', fontFamily: 'monospace', wordWrap: { width: 700 }, align: 'center' }).setOrigin(0.5);
+      yOffset += 20;
+    }
+
+    const idealFiber = 'Ideal: 20-30g fiber + water for Type 3-4 stool';
+    this.add.text(w / 2, yOffset, idealFiber, { fontSize: '11px', fill: '#4CAF50', fontFamily: 'monospace' }).setOrigin(0.5);
+    yOffset += 30;
+
+    this.add.text(w / 2, yOffset, '--- PvP Mode ---', { fontSize: '14px', fill: '#e94560', fontFamily: 'monospace' }).setOrigin(0.5);
+    yOffset += 22;
+
+    this.pvpCode = '';
+    this.pvpStatusText = this.add.text(w / 2, yOffset, '', { fontSize: '12px', fill: '#aaa', fontFamily: 'monospace' }).setOrigin(0.5);
+    yOffset += 22;
+
+    const genBtn = this.add.text(w / 2 - 80, yOffset, '[ Generate Code ]', { fontSize: '13px', fill: '#2196F3', fontFamily: 'monospace' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    genBtn.on('pointerdown', () => {
+      this.pvpCode = window.GutRush.PvPManager.generateCode();
+      this.pvpStatusText.setText(`Share code: ${this.pvpCode}`);
+      window.GutRush.PvPManager.saveScore(this.pvpCode, 'Player 1', this.score.total, this.score.breakdown, this.result);
+    });
+
+    const joinBtn = this.add.text(w / 2 + 80, yOffset, '[ Join Match ]', { fontSize: '13px', fill: '#FF9800', fontFamily: 'monospace' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    joinBtn.on('pointerdown', () => {
+      if (!this.pvpCode) {
+        const userCode = prompt('Enter PvP code from player 1:');
+        if (!userCode) return;
+        this.pvpCode = userCode.toUpperCase();
+      }
+      const match = window.GutRush.PvPManager.getMatch(this.pvpCode);
+      if (!match) {
+        this.pvpStatusText.setText('Code not found. Generate one first!');
+        return;
+      }
+      if (!match.player1) {
+        this.pvpStatusText.setText('No player 1 data for this code');
+        return;
+      }
+      if (match.player2) {
+        this.pvpStatusText.setText('Match already has 2 players!');
+        return;
+      }
+      const saved = window.GutRush.PvPManager.saveScore(this.pvpCode, 'Player 2', this.score.total, this.score.breakdown, this.result);
+      if (!saved) {
+        this.pvpStatusText.setText('Could not save - match full or error');
+        return;
+      }
+      const match2 = window.GutRush.PvPManager.getMatch(this.pvpCode);
+      if (match2 && match2.player1 && match2.player2) {
+        const winner = window.GutRush.PvPManager.getWinner(match2);
+        this.pvpStatusText.setText(
+          `${match2.player1.name}: ${match2.player1.score} | ${match2.player2.name}: ${match2.player2.score} | ${winner ? `Winner: ${winner.name} (${winner.score})` : 'Tie!'}`
+        );
+      }
+    });
+
+    yOffset += 30;
+    const playAgain = this.add.text(w / 2, yOffset + 10, '[ Play Again ]', { fontSize: '20px', fill: '#e94560', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    playAgain.on('pointerdown', () => this.scene.start('ShopScene'));
+  }
+};
+
+const config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: "game-container",
+  backgroundColor: "#1a1a2e",
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [
+    window.GutRush.BootScene,
+    window.GutRush.ShopScene,
+    window.GutRush.EatScene,
+    window.GutRush.DigestionScene,
+    window.GutRush.PopScene,
+    window.GutRush.ScoreScene,
+  ],
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
