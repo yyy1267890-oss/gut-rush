@@ -231,8 +231,11 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
   constructor() { super('BootScene'); }
 
   preload() {
-    this.load.image('bolus', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAALUlEQVRIiWNgYPj/n4EBBJgYKAQMowUMowUMowUMowUMowUMowWMBQsAAMhNBR5dydtcAAAAAElFTkSuQmCC');
-    this.load.image('star', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAnUlEQVRYhe2VMQrCQBBF30a8gJfwWl7Ny3gFr+AltZBEsZJUthHc+QcpBkRBMH98eLPzZ4f9AwBgS612B/AGGMC5j84APAAVfjoM4AWo8dNhAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH0DCgJ0PIwAfQMKAnQ8jAB9AwoCdDyMAH8IYHysLEcMCAAAAAElFTkSuQmCC');
+    const g = this.make.graphics({ add: false });
+    g.fillStyle(0x8B4513, 1);
+    g.fillCircle(8, 8, 8);
+    g.generateTexture('bolus', 16, 16);
+    g.destroy();
   }
 
   create() {
