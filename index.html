@@ -211,22 +211,12 @@ window.GutRush.ScoreCalculator = class ScoreCalculator {
   }
 };
 
-window.GutRush.PvPManager = class PvPManager {
-  static generateMatch(code) {
-    return new Promise((resolve, reject) => {
-      const peer = new Peer(code);
-      const timeout = setTimeout(() => reject(new Error('Timed out waiting for opponent')), 120000);
-      peer.on('open', () => {
-        peer.on('connection', (conn) => {
-          clearTimeout(timeout);
-          resolve({ conn, peer });
-        });
-      });
-      peer.on('error', (err) => { clearTimeout(timeout); reject(err); });
-    });
-  }
+window.GutRush.saveGame = (state) => { try { localStorage.setItem('gutrush_save', JSON.stringify({ ...state, ts: Date.now() })); } catch {} };
+window.GutRush.loadGame = () => { try { const d = localStorage.getItem('gutrush_save'); return d ? JSON.parse(d) : null; } catch { return null; } };
+window.GutRush.clearGame = () => { try { localStorage.removeItem('gutrush_save'); } catch {} };
 
-  static generateMatch3P(code) {
+window.GutRush.PvPManager = class PvPManager {
+  static generateMatch(code, numPlayers) {
     return new Promise((resolve, reject) => {
       const peer = new Peer(code);
       const timeout = setTimeout(() => reject(new Error('Timed out waiting for players')), 120000);
@@ -234,7 +224,7 @@ window.GutRush.PvPManager = class PvPManager {
       peer.on('open', () => {
         peer.on('connection', (conn) => {
           conns.push(conn);
-          if (conns.length === 2) {
+          if (conns.length >= numPlayers - 1) {
             clearTimeout(timeout);
             resolve({ conns, peer });
           }
@@ -270,15 +260,8 @@ window.GutRush.PvPManager = class PvPManager {
   }
 
   static getWinner(match) {
-    if (!match || !match.player1 || !match.player2) return null;
-    if (match.player1.score > match.player2.score) return match.player1;
-    if (match.player2.score > match.player1.score) return match.player2;
-    return null;
-  }
-
-  static getWinner3P(match) {
     if (!match) return null;
-    const players = [match.player0, match.player1, match.player2].filter(Boolean);
+    const players = Object.values(match).filter(Boolean);
     if (players.length < 2) return null;
     let best = players[0];
     for (let i = 1; i < players.length; i++) {
@@ -397,21 +380,21 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
     mobileInput.addEventListener('blur', blurHandler);
     this.time.delayedCall(200, () => { mobileInput.focus(); });
 
-    const hint = this.add.text(w / 2, 290, 'Up to 14 characters — tap Confirm when done', { fontSize: '8px', fill: '#bbb', fontFamily: pixelFont }).setOrigin(0.5).setDepth(10);
+    const hint = this.add.text(w / 2, 320, 'Up to 14 characters — tap Confirm when done', { fontSize: '13px', fill: '#e0e0e0', fontFamily: pixelFont }).setOrigin(0.5).setDepth(10);
 
     const confirmBg = this.add.graphics(); confirmBg.setDepth(10);
-    const btnW = 200, btnH = 44, btnX = w / 2 - btnW / 2, btnY = 325;
+    const btnW = 260, btnH = 64, btnX = w / 2 - btnW / 2, btnY = 355;
     const drawBtn = (fill, stroke) => {
       confirmBg.clear();
       confirmBg.fillStyle(fill, 1);
-      confirmBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+      confirmBg.fillRoundedRect(btnX, btnY, btnW, btnH, 10);
       confirmBg.lineStyle(2, stroke, 1);
-      confirmBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 8);
+      confirmBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 10);
     };
     drawBtn(0x0d3b0d, 0x4CAF50);
-    const confirmBtn = this.add.text(w / 2, btnY + btnH / 2, 'CONFIRM', { fontSize: '11px', fill: '#81C784', fontFamily: pixelFont }).setOrigin(0.5).setDepth(11).setInteractive({ useHandCursor: true });
-    confirmBtn.on('pointerover', () => { drawBtn(0x1a5c1a, 0x66BB6A); confirmBtn.setScale(1.08); confirmBtn.setFill('#A5D6A7'); });
-    confirmBtn.on('pointerout', () => { drawBtn(0x0d3b0d, 0x4CAF50); confirmBtn.setScale(1); confirmBtn.setFill('#81C784'); });
+    const confirmBtn = this.add.text(w / 2, btnY + btnH / 2 + 2, 'CONFIRM', { fontSize: '18px', fill: '#A5D6A7', fontFamily: pixelFont }).setOrigin(0.5).setDepth(11).setInteractive({ useHandCursor: true });
+    confirmBtn.on('pointerover', () => { drawBtn(0x1a5c1a, 0x66BB6A); confirmBtn.setScale(1.08); confirmBtn.setFill('#C8E6C9'); });
+    confirmBtn.on('pointerout', () => { drawBtn(0x0d3b0d, 0x4CAF50); confirmBtn.setScale(1); confirmBtn.setFill('#A5D6A7'); });
     confirmBtn.on('pointerdown', accept);
   }
 
@@ -430,28 +413,34 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
     this.tweens.add({ targets: title, alpha: 1, y: h / 2 - 60, duration: 800, ease: 'Power2' });
     this.tweens.add({ targets: sub, alpha: 1, duration: 1000, delay: 400 });
 
+    const saved = window.GutRush.loadGame();
+    const off = saved ? 32 : 0;
+
     const playBtn = this.add.text(w / 2, h / 2 + 30, '[ Play ]', { fontSize: '22px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
-    const pvpBtn = this.add.text(w / 2, h / 2 + 75, '[ PvP Battle ]', { fontSize: '18px', fill: '#FF9800', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
-    const pvp3Btn = this.add.text(w / 2, h / 2 + 110, '[ PvP 3-Player ]', { fontSize: '14px', fill: '#AB47BC', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
-    const joinBtn = this.add.text(w / 2, h / 2 + 145, '[ Join Match ]', { fontSize: '14px', fill: '#42A5F5', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
-    const howBtn = this.add.text(w / 2, h / 2 + 180, '[ How to Play ]', { fontSize: '14px', fill: '#888', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    let contBtn = null;
+    if (saved) {
+      contBtn = this.add.text(w / 2, h / 2 + 70, '[ Continue ]', { fontSize: '18px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+      contBtn.on('pointerover', () => contBtn.setFill('#FFEB3B'));
+      contBtn.on('pointerout', () => contBtn.setFill('#FFD700'));
+      contBtn.on('pointerdown', () => { window.GutRush.pvpMode = false; this.startGame(); });
+    }
+    const pvpBtn = this.add.text(w / 2, h / 2 + 75 + off, '[ PvP Battle ]', { fontSize: '18px', fill: '#FF9800', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const joinBtn = this.add.text(w / 2, h / 2 + 115 + off, '[ Join Match ]', { fontSize: '16px', fill: '#42A5F5', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const howBtn = this.add.text(w / 2, h / 2 + 155 + off, '[ How to Play ]', { fontSize: '14px', fill: '#888', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
 
     this.time.delayedCall(1300, () => {
-      this.tweens.add({ targets: [playBtn, pvpBtn, pvp3Btn, joinBtn], alpha: 1, duration: 500 });
+      const targets = contBtn ? [playBtn, contBtn, pvpBtn, joinBtn] : [playBtn, pvpBtn, joinBtn];
+      this.tweens.add({ targets, alpha: 1, duration: 500 });
       this.tweens.add({ targets: howBtn, alpha: 0.7, duration: 500 });
     });
 
     playBtn.on('pointerover', () => playBtn.setFill('#81C784'));
     playBtn.on('pointerout', () => playBtn.setFill('#4CAF50'));
-    playBtn.on('pointerdown', () => { window.GutRush.pvpMode = false; this.startGame(); });
+    playBtn.on('pointerdown', () => { window.GutRush.pvpMode = false; window.GutRush.clearGame(); this.startGame(); });
 
     pvpBtn.on('pointerover', () => pvpBtn.setFill('#FFB74D'));
     pvpBtn.on('pointerout', () => pvpBtn.setFill('#FF9800'));
-    pvpBtn.on('pointerdown', () => withNickname(() => this.startPvPHost()));
-
-    pvp3Btn.on('pointerover', () => pvp3Btn.setFill('#CE93D8'));
-    pvp3Btn.on('pointerout', () => pvp3Btn.setFill('#AB47BC'));
-    pvp3Btn.on('pointerdown', () => withNickname(() => this.startPvPHost3P()));
+    pvpBtn.on('pointerdown', () => withNickname(() => this.showHostSetup()));
 
     joinBtn.on('pointerover', () => joinBtn.setFill('#64B5F6'));
     joinBtn.on('pointerout', () => joinBtn.setFill('#42A5F5'));
@@ -476,8 +465,8 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
         '5. Get scored on Shape, Size, Consistency,',
         '   Speed, and Egestion timing',
         '',
-        'PvP (2-Player or 3-Player):',
-        'Create a code, share with friends.',
+        'PvP Multiplayer (2-8 Players):',
+        'Host creates a code — share with friends.',
         'All play at the same time, then compare scores!',
       ];
       const howText = this.add.text(w / 2, h / 2 - 120, lines.join('\n'), { fontSize: '15px', fill: '#ddd', fontFamily: 'Arial, sans-serif', align: 'center', lineSpacing: 6 }).setOrigin(0.5).setDepth(25);
@@ -491,84 +480,95 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
   }
 
-  showPvPOverlay(code) {
-    return this._showPvPOverlay(code, 2);
-  }
-
-  showPvPOverlay3P(code) {
-    return this._showPvPOverlay(code, 3);
-  }
-
-  _showPvPOverlay(code, numPlayers) {
+  showHostSetup() {
     const w = 800, h = 600;
-    const bg = this.add.graphics();
-    bg.fillStyle(0x0a0a1a, 0.95);
-    bg.fillRect(0, 0, w, h);
-    bg.setDepth(20);
+    const bg = this.add.graphics(); bg.fillStyle(0x0a0a1a, 0.95); bg.fillRect(0, 0, w, h); bg.setDepth(20);
     bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
 
-    const playerLabel = numPlayers === 3 ? 'Player 2 & Player 3' : 'Player 2';
-    this.add.text(w / 2, 150, `Share this code with ${playerLabel}`, { fontSize: '16px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25);
-    const codeText = this.add.text(w / 2, 220, code, { fontSize: '52px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
-    const copyHint = this.add.text(w / 2, 260, '(tap code to copy)', { fontSize: '14px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(25);
+    const title = this.add.text(w / 2, 120, 'Host Game', { fontSize: '28px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
+    const sub = this.add.text(w / 2, 170, 'How many players?', { fontSize: '18px', fill: '#aaa', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(25);
+
+    const numBtns = [], btnSpacing = 65, startX = w / 2 - (3 * btnSpacing);
+    for (let n = 2; n <= 8; n++) {
+      const b = this.add.text(startX + ((n - 2) * btnSpacing), 230, `[${n}]`, { fontSize: '22px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+      b.on('pointerover', () => b.setFill('#81C784'));
+      b.on('pointerout', () => b.setFill('#4CAF50'));
+      b.on('pointerdown', () => { elems.forEach(e => e.destroy()); this.startPvPHost(n); });
+      numBtns.push(b);
+    }
+
+    const cancelBtn = this.add.text(w / 2, 310, '[ Cancel ]', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    cancelBtn.on('pointerdown', () => elems.forEach(e => e.destroy()));
+
+    const elems = [bg, title, sub, ...numBtns, cancelBtn];
+  }
+
+  startPvPHost(numPlayers) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const w = 800, h = 600;
+
+    const bg = this.add.graphics(); bg.fillStyle(0x0a0a1a, 0.95); bg.fillRect(0, 0, w, h); bg.setDepth(20);
+    bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+
+    this.add.text(w / 2, 120, `Share this code with ${numPlayers - 1} player${numPlayers > 2 ? 's' : ''}`, { fontSize: '16px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25);
+    const codeText = this.add.text(w / 2, 190, code, { fontSize: '52px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    const copyHint = this.add.text(w / 2, 230, '(tap code to copy)', { fontSize: '14px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(25);
     codeText.on('pointerdown', () => { navigator.clipboard.writeText(code).catch(() => {}); copyHint.setText('✓ Copied!'); });
 
     const totalJoiners = numPlayers - 1;
     let joinedCount = 0;
-    const waitText = this.add.text(w / 2, 330, `Waiting for players to join... (${joinedCount}/${totalJoiners})`, { fontSize: '18px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
+    const waitText = this.add.text(w / 2, 300, `Connected: (${joinedCount}/${totalJoiners})`, { fontSize: '18px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
     this.tweens.add({ targets: waitText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
 
-    return { overlay: bg, elements: [bg, codeText, copyHint, waitText], updateJoinCount: (n) => { joinedCount = n; waitText.setText(`Waiting for players to join... (${joinedCount}/${totalJoiners})`); } };
-  }
+    const startBtn = this.add.text(w / 2, 370, '[ Start Game ]', { fontSize: '22px', fill: '#555', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
+    const cancelBtn = this.add.text(w / 2, 430, '[ Cancel ]', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    cancelBtn.on('pointerdown', () => { if (peer) peer.destroy(); elems.forEach(e => e.destroy()); });
 
-  startPvPHost() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    const ov = this.showPvPOverlay(code);
+    let peer = null;
+    const elems = [bg, codeText, copyHint, waitText, startBtn, cancelBtn];
+    const update = () => {
+      joinedCount++;
+      const allIn = joinedCount >= totalJoiners;
+      waitText.setText(`Connected: (${joinedCount}/${totalJoiners})`);
+      startBtn.setFill(allIn ? '#4CAF50' : '#555');
+      startBtn.removeAllListeners('pointerdown');
+      if (allIn) {
+        startBtn.setInteractive({ useHandCursor: true });
+        startBtn.on('pointerover', () => startBtn.setFill('#81C784'));
+        startBtn.on('pointerout', () => startBtn.setFill('#4CAF50'));
+        startBtn.on('pointerdown', () => {
+          startBtn.removeAllListeners('pointerdown');
+          window.GutRush._pvpConns.forEach((conn, i) => conn.send({ type: 'game_start', numPlayers }));
+          elems.forEach(e => e.destroy());
+          window.GutRush.pvpMode = true;
+          window.GutRush._pvpNumPlayers = numPlayers;
+          window.GutRush._pvpMyIdx = 0;
+          this.startGame();
+        });
+      }
+    };
+
     window.GutRush._pvpIsHost = true;
     window.GutRush.pvpCode = code;
 
-    window.GutRush.PvPManager.generateMatch(code).then(({ conn, peer }) => {
-      window.GutRush._pvpConn = conn;
-      window.GutRush._pvpPeer = peer;
-      window.GutRush._pvpRecv = null;
-      conn.on('data', (d) => {
-        if (d.type === 'join_request') conn.send({ type: 'welcome', playerIdx: 1, numPlayers: 2 });
-        else window.GutRush._pvpRecv = d;
-      });
-      ov.elements.forEach(e => e.destroy());
-      window.GutRush.pvpMode = true;
-      this.startGame();
-    }).catch(() => {
-      ov.elements.forEach(e => e.destroy());
-      this.add.text(400, 300, 'Connection failed — try again', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
-    });
-  }
-
-  startPvPHost3P() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    const ov = this.showPvPOverlay3P(code);
-    window.GutRush._pvpIsHost = true;
-    window.GutRush.pvpCode = code;
-
-    window.GutRush.PvPManager.generateMatch3P(code).then(({ conns, peer }) => {
+    window.GutRush.PvPManager.generateMatch(code, numPlayers).then(({ conns, peer: p }) => {
+      peer = p;
       window.GutRush._pvpConns = conns;
       window.GutRush._pvpPeer = peer;
       window.GutRush._pvpRecv = [];
       conns.forEach((conn, i) => {
         const playerIdx = i + 1;
-        conn.send({ type: 'welcome', playerIdx });
-        conn.on('data', (d) => { window.GutRush._pvpRecv[i] = d; });
+        conn.send({ type: 'welcome', playerIdx, numPlayers });
+        conn.on('data', (d) => {
+          if (d.type === 'join_request') { conn.send({ type: 'welcome', playerIdx, numPlayers }); }
+          else { window.GutRush._pvpRecv[i] = d; }
+        });
+        update();
       });
-      ov.elements.forEach(e => e.destroy());
-      window.GutRush.pvpMode = true;
-      window.GutRush._pvpNumPlayers = 3;
-      window.GutRush._pvpMyIdx = 0;
-      this.startGame();
     }).catch(() => {
-      ov.elements.forEach(e => e.destroy());
-      this.add.text(400, 300, 'Failed to find enough players', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
+      cancelBtn.disableInteractive();
+      cancelBtn.setText('Connection failed');
     });
   }
 
@@ -622,33 +622,33 @@ window.GutRush.BootScene = class BootScene extends Phaser.Scene {
   }
 
   async joinMatch(code) {
-    const status = this.add.text(400, 450, 'Connecting...', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(30);
+    const w = 800, h = 600;
+    const bg = this.add.graphics(); bg.fillStyle(0x0a0a1a, 0.95); bg.fillRect(0, 0, w, h); bg.setDepth(20);
+    const status = this.add.text(400, 280, 'Connecting...', { fontSize: '18px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(30);
     try {
       const result = await window.GutRush.PvPManager.joinMatch(code.trim().toUpperCase());
       const { conn, peer, playerIdx, numPlayers } = result;
       window.GutRush._pvpConn = conn;
       window.GutRush._pvpPeer = peer;
-      if (numPlayers === 3) {
-        window.GutRush._pvpConns = [conn];
-        window.GutRush._pvpNumPlayers = 3;
-        window.GutRush._pvpMyIdx = playerIdx;
-        window.GutRush._pvpRecv = [];
-      } else {
-        window.GutRush._pvpRecv = null;
-      }
+      window.GutRush._pvpConns = [conn];
+      window.GutRush._pvpNumPlayers = numPlayers;
+      window.GutRush._pvpMyIdx = playerIdx;
+      window.GutRush._pvpRecv = [];
+      status.setText(`Waiting for host to start game... (player ${playerIdx + 1}/${numPlayers})`);
+      this.tweens.add({ targets: status, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
       conn.on('data', (d) => {
-        if (numPlayers === 3) {
-          window.GutRush._pvpRecv[0] = d;
+        if (d.type === 'game_start') {
+          bg.destroy(); status.destroy();
+          window.GutRush._pvpIsHost = false;
+          window.GutRush.pvpCode = code.trim().toUpperCase();
+          window.GutRush.pvpMode = true;
+          this.startGame();
         } else {
-          window.GutRush._pvpRecv = d;
+          window.GutRush._pvpRecv[0] = d;
         }
       });
-      window.GutRush._pvpIsHost = false;
-      window.GutRush.pvpCode = code.trim().toUpperCase();
-      window.GutRush.pvpMode = true;
-      status.destroy();
-      this.startGame();
     } catch (e) {
+      bg.destroy();
       status.setText(e.message);
     }
   }
@@ -661,8 +661,9 @@ window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#1a1a2e');
     this.cameras.main.fadeIn(300);
     const w = 800, h = 600;
-    this.coins = 30;
-    this.cart = [];
+    const saved = !window.GutRush.pvpMode ? window.GutRush.loadGame() : null;
+    this.coins = (saved && saved.coins != null) ? saved.coins : 30;
+    this.cart = (saved && saved.cart) ? saved.cart.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean) : [];
     this.foods = [...window.GutRush.FOODS];
 
     // Subtle grid background
@@ -812,49 +813,50 @@ window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
       this.cardContainer.y = this.scrollY;
     });
 
-    // PvP ready/steal listener
-    if (window.GutRush.pvpMode && window.GutRush._pvpNumPlayers === 3) {
-      this._opponentReady = { 1: false, 2: false };
-      this._opponentFoods = { 1: [], 2: [] };
+    // PvP ready/steal listener (unified for N players)
+    if (window.GutRush.pvpMode) {
+      this._opponentReady = {};
+      this._opponentFoods = {};
       this._allReady = false;
-      (window.GutRush._pvpConns || [window.GutRush._pvpConn]).forEach((conn, idx) => {
+      const conns = window.GutRush._pvpConns || [];
+      const isHost = window.GutRush._pvpIsHost;
+      const myIdx = window.GutRush._pvpMyIdx;
+      const total = window.GutRush._pvpNumPlayers;
+
+      const onAllReady = (d) => {
+        this._allReady = true;
+        this.cart = d.foods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+        this.updateUI();
+        if (d.stolen) this.showStolenText(d.stolen);
+        if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
+        this.startBtn.removeAllListeners('pointerdown');
+        this.startBtn.on('pointerdown', () => this.startDigestion());
+      };
+
+      const checkAllReady = () => {
+        if (!this._readySent) return;
+        const allReady = Object.keys(this._opponentReady).length === total - 1 &&
+          Object.values(this._opponentReady).every(Boolean);
+        if (allReady) this.processPvPReady();
+      };
+
+      conns.forEach((conn) => {
         if (!conn) return;
         conn.on('data', (d) => {
           if (d.type === 'ready') {
-            if (d.playerIdx === 0) { this._opponentReady[0] = true; return; }
             this._opponentReady[d.playerIdx] = true;
             this._opponentFoods[d.playerIdx] = d.foods;
-            if (this._readySent && this._opponentReady[1] && this._opponentReady[2] && window.GutRush._pvpIsHost) this.processPvPReady3P();
+            if (isHost) checkAllReady();
           } else if (d.type === 'all_ready') {
-            this._allReady = true;
-            this.cart = d.foods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
-            this.updateUI();
-            if (d.stolen) this.showStolenText(d.stolen);
-            if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
-            this.startBtn.removeAllListeners('pointerdown');
-            this.startBtn.on('pointerdown', () => this.startDigestion());
+            onAllReady(d);
           }
         });
       });
-    } else if (window.GutRush.pvpMode && window.GutRush._pvpConn) {
-      this._opponentReady = false;
-      this._opponentFoods = [];
-      window.GutRush._pvpConn.on('data', (d) => {
-        if (d.type === 'ready') {
-          this._opponentReady = true;
-          this._opponentFoods = d.foods;
-          if (this._readySent) this.processPvPReady();
-        } else if (d.type === 'all_ready') {
-          this._allReady = true;
-          this.cart = d.foods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
-          this.updateUI();
-          if (d.stolen) this.showStolenText(d.stolen);
-          if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
-          this.startBtn.removeAllListeners('pointerdown');
-          this.startBtn.on('pointerdown', () => this.startDigestion());
-        }
-      });
     }
+  }
+
+  persist() {
+    if (!window.GutRush.pvpMode) window.GutRush.saveGame({ coins: this.coins, cart: this.cart.map(f => f.id), scene: 'ShopScene' });
   }
 
   updateUI() {
@@ -907,106 +909,65 @@ window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
   }
 
   sendReady() {
-    if (!window.GutRush._pvpConn || this._readySent) return;
+    if (!window.GutRush._pvpConns || this._readySent) return;
     this._readySent = true;
     if (this.readyBtn) this.readyBtn.setText('[ Sent ]').setFill('#aaa').disableInteractive();
     const foodIds = this.cart.map(f => f.id);
-    if (window.GutRush._pvpNumPlayers === 3) {
-      const myIdx = window.GutRush._pvpMyIdx;
-      const conns = window.GutRush._pvpConns || [window.GutRush._pvpConn];
-      conns.forEach(c => { if (c) c.send({ type: 'ready', foods: foodIds, playerIdx: myIdx }); });
-      if (window.GutRush._pvpIsHost && this._opponentReady[1] && this._opponentReady[2]) this.processPvPReady3P();
-    } else {
-      window.GutRush._pvpConn.send({ type: 'ready', foods: foodIds });
-      if (this._opponentReady) this.processPvPReady();
-    }
+    const myIdx = window.GutRush._pvpMyIdx;
+    const conns = window.GutRush._pvpConns || [];
+    conns.forEach(c => { if (c) c.send({ type: 'ready', foods: foodIds, playerIdx: myIdx }); });
+    if (window.GutRush._pvpIsHost) this.processPvPReady();
   }
 
   processPvPReady() {
     if (!window.GutRush._pvpIsHost) return;
     this._allReady = true;
-    const myFoods = this.cart.map(f => f.id);
-    const oppFoods = [...this._opponentFoods];
-    const r = this.calcSteals(myFoods, oppFoods);
-    window.GutRush._pvpConn.send({ type: 'all_ready', foods: r.oppFoods, stolen: r.oppStolen });
-    this.cart = r.myFoods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
-    this.updateUI();
-    if (r.myStolen) this.showStolenText(r.myStolen);
-    if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
-    this.startBtn.removeAllListeners('pointerdown');
-    this.startBtn.on('pointerdown', () => this.startDigestion());
-  }
-
-  processPvPReady3P() {
-    if (!window.GutRush._pvpIsHost) return;
-    this._allReady = true;
-    const myFoods = this.cart.map(f => f.id);
-    const p2Foods = [...(this._opponentFoods[1] || [])];
-    const p3Foods = [...(this._opponentFoods[2] || [])];
-    const r = this.calcSteals3P(myFoods, p2Foods, p3Foods);
+    const myIdx = window.GutRush._pvpMyIdx;
+    const allFoods = { [myIdx]: this.cart.map(f => f.id) };
+    Object.keys(this._opponentFoods).forEach(idx => { allFoods[Number(idx)] = [...this._opponentFoods[idx]]; });
+    const r = this.calcSteals(allFoods);
     const conns = window.GutRush._pvpConns || [];
-    if (conns[0]) conns[0].send({ type: 'all_ready', foods: r.p2Foods, stolen: r.p2Stolen });
-    if (conns[1]) conns[1].send({ type: 'all_ready', foods: r.p3Foods, stolen: r.p3Stolen });
-    this.cart = r.myFoods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+    Object.keys(r.foods).forEach(idx => {
+      const i = Number(idx);
+      if (i === myIdx) {
+        this.cart = r.foods[i].map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+      } else {
+        const connIdx = i - 1;
+        if (conns[connIdx]) conns[connIdx].send({ type: 'all_ready', foods: r.foods[i], stolen: r.stolen[i] });
+      }
+    });
     this.updateUI();
-    if (r.myStolen) this.showStolenText(r.myStolen);
+    if (r.stolen[myIdx]) this.showStolenText(r.stolen[myIdx]);
     if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
     this.startBtn.removeAllListeners('pointerdown');
     this.startBtn.on('pointerdown', () => this.startDigestion());
   }
 
-  calcSteals(myFoods, oppFoods) {
+  calcSteals(allPlayerFoods) {
     const findName = id => { const f = window.GutRush.FOODS.find(x => x.id === id); return f ? f.name : id; };
-    let myStolen = null, oppStolen = null;
-    const myFn = myFoods.filter(f => f === 'fanum_tax').length;
-    const oppFn = oppFoods.filter(f => f === 'fanum_tax').length;
-    for (let i = 0; i < myFn; i++) {
-      if (Math.random() < 0.2 && oppFoods.length > 0) {
-        const idx = Math.floor(Math.random() * oppFoods.length);
-        const stolenId = oppFoods.splice(idx, 1)[0];
-        myFoods.push(stolenId);
-        oppStolen = findName(stolenId);
-      }
-    }
-    for (let i = 0; i < oppFn; i++) {
-      if (Math.random() < 0.2 && myFoods.length > 0) {
-        const idx = Math.floor(Math.random() * myFoods.length);
-        const stolenId = myFoods.splice(idx, 1)[0];
-        oppFoods.push(stolenId);
-        myStolen = findName(stolenId);
-      }
-    }
-    return { myFoods: myFoods.filter(f => f !== 'fanum_tax'), oppFoods: oppFoods.filter(f => f !== 'fanum_tax'), myStolen, oppStolen };
-  }
-
-  calcSteals3P(myFoods, p2Foods, p3Foods) {
-    const findName = id => { const f = window.GutRush.FOODS.find(x => x.id === id); return f ? f.name : id; };
-    let myStolen = null, p2Stolen = null, p3Stolen = null;
-    const targets = [[1, 2], [0, 2], [0, 1]];
-    const lists = [myFoods, p2Foods, p3Foods];
-    const fnCounts = lists.map(arr => arr.filter(f => f === 'fanum_tax').length);
-    for (let self = 0; self < 3; self++) {
-      const choices = targets[self];
-      for (let i = 0; i < fnCounts[self]; i++) {
-        const target = choices[Math.floor(Math.random() * 2)];
-        const targetArr = lists[target];
+    const indices = Object.keys(allPlayerFoods).map(Number);
+    const foods = {}, fnCounts = {}, stolen = {};
+    indices.forEach(idx => {
+      foods[idx] = [...allPlayerFoods[idx]];
+      fnCounts[idx] = foods[idx].filter(f => f === 'fanum_tax').length;
+      stolen[idx] = null;
+    });
+    indices.forEach(selfIdx => {
+      for (let i = 0; i < fnCounts[selfIdx]; i++) {
+        const targets = indices.filter(t => t !== selfIdx);
+        const target = targets[Math.floor(Math.random() * targets.length)];
+        const targetArr = foods[target];
         if (Math.random() < 0.2 && targetArr.length > 0) {
-          const idx = Math.floor(Math.random() * targetArr.length);
-          const stolenId = targetArr.splice(idx, 1)[0];
-          lists[self].push(stolenId);
-          const foodName = findName(stolenId);
-          if (target === 0) myStolen = foodName;
-          else if (target === 1) p2Stolen = foodName;
-          else p3Stolen = foodName;
+          const si = Math.floor(Math.random() * targetArr.length);
+          const stolenId = targetArr.splice(si, 1)[0];
+          foods[selfIdx].push(stolenId);
+          stolen[target] = findName(stolenId);
         }
       }
-    }
-    return {
-      myFoods: lists[0].filter(f => f !== 'fanum_tax'),
-      p2Foods: lists[1].filter(f => f !== 'fanum_tax'),
-      p3Foods: lists[2].filter(f => f !== 'fanum_tax'),
-      myStolen, p2Stolen, p3Stolen
-    };
+    });
+    const result = {};
+    indices.forEach(idx => { result[idx] = foods[idx].filter(f => f !== 'fanum_tax'); });
+    return { foods: result, stolen };
   }
 
   showStolenText(foodName) {
@@ -1016,6 +977,7 @@ window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
 
   startDigestion() {
     this.cart = this.cart.filter(f => f.cat !== 'Interactable');
+    this.persist();
     this.cameras.main.fadeOut(300, 10, 10, 30);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('EatScene', { foods: this.cart, coins: this.coins }));
   }
@@ -1549,7 +1511,7 @@ window.GutRush.DigestionScene = class DigestionScene extends Phaser.Scene {
         const txt = this.add.text(400, 300, 'MINIGAME TRIGGERED', { fontSize: '32px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(50).setScale(0.3);
         this.tweens.add({ targets: txt, scale: 1.2, duration: 500, ease: 'Cubic.easeOut', onComplete: () => {
           txt.destroy();
-          const games = ['speedCheck', 'wirePuzzle', 'seqMemory'];
+          const games = ['speedCheck', 'seqMemory'];
           this[games[Math.floor(Math.random() * games.length)]]();
         } });
       }
@@ -1688,56 +1650,7 @@ window.GutRush.DigestionScene = class DigestionScene extends Phaser.Scene {
     });
   }
 
-  // 2. Wire Puzzle
-  wirePuzzle() {
-    const w = 800, h = 600;
-    const g = this.add.graphics(); g.setDepth(30);
-    g.fillStyle(0x0a0a1a, 0.95); g.fillRect(0, 0, w, h); g.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
-    const title = this.add.text(w / 2, 40, '🔌 WIRE PUZZLE', { fontSize: '20px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
-    const hint = this.add.text(w / 2, 70, 'Tap a wire on the left, then its match on the right', { fontSize: '12px', fill: '#aaa', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(35);
-    const colors = [0xff4444, 0x4488ff, 0xffdd44, 0xff44ff, 0x44ff88];
-    const colorNames = ['Red', 'Blue', 'Yellow', 'Magenta', 'Green'];
-    const leftOrder = [0, 1, 2, 3, 4];
-    const rightOrder = [0, 1, 2, 3, 4];
-    for (let i = leftOrder.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [leftOrder[i], leftOrder[j]] = [leftOrder[j], leftOrder[i]]; }
-    for (let i = rightOrder.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rightOrder[i], rightOrder[j]] = [rightOrder[j], rightOrder[i]]; }
-    const circles = [];
-    let selected = null, matched = 0, done = false;
-    const lineG = this.add.graphics(); lineG.setDepth(35);
-    const addCircle = (x, y, col, idx, side) => {
-      const c = this.add.graphics(); c.setDepth(36);
-      c.fillStyle(col, 1); c.fillCircle(x, y, 20);
-      c.lineStyle(2, 0xffffff, 0.5); c.strokeCircle(x, y, 20);
-      const label = this.add.text(x, y + 30, colorNames[idx], { fontSize: '11px', fill: '#ddd', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(36);
-      const zone = this.add.zone(x, y, 44, 44).setInteractive({ useHandCursor: true }).setDepth(37);
-      zone.on('pointerdown', () => {
-        if (done) return;
-        if (side === 'left') {
-          circles.forEach(c => { c[0].clear(); c[0].fillStyle(c[2], 1); c[0].fillCircle(c[3], c[4], 20); c[0].lineStyle(2, 0xffffff, 0.5); c[0].strokeCircle(c[3], c[4], 20); });
-          c.clear(); c.fillStyle(col, 1); c.fillCircle(x, y, 20); c.lineStyle(3, 0xffffff, 1); c.strokeCircle(x, y, 20);
-          selected = { idx, x, y, col };
-        } else if (side === 'right' && selected) {
-          if (selected.idx === idx) {
-            lineG.lineStyle(4, col, 0.8); lineG.beginPath(); lineG.moveTo(selected.x, selected.y); lineG.lineTo(x, y); lineG.strokePath();
-            matched++; circles.push([c, label, col, x, y]);
-            selected = null;
-            if (matched === 5) {
-              done = true;
-              const res = this.add.text(w / 2, 500, '✅ Circuits connected! +1s', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(40);
-              this.time.delayedCall(1000, () => { g.destroy(); res.destroy(); lineG.destroy(); title.destroy(); hint.destroy(); circles.forEach(c => { try { c[0].destroy(); c[1].destroy(); } catch {} }); this._miniComplete(true); });
-            }
-          } else {
-            selected = null;
-          }
-        }
-      });
-      circles.push([c, label, col, x, y]);
-    };
-    leftOrder.forEach((idx, i) => addCircle(100, 140 + i * 90, colors[idx], idx, 'left'));
-    rightOrder.forEach((idx, i) => addCircle(700, 140 + i * 90, colors[idx], idx, 'right'));
-  }
-
-  // 3. Sequence Memory (5 rounds)
+  // 2. Sequence Memory (5 rounds)
   seqMemory() {
     const w = 800, h = 600;
     const g = this.add.graphics(); g.setDepth(30);
@@ -2409,13 +2322,15 @@ window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
     this.pvpPanelTexts = [];
     this._pvpDone = false;
 
-    const is3P = window.GutRush._pvpNumPlayers === 3;
-    if (window.GutRush.pvpMode && (window.GutRush._pvpConn || window.GutRush._pvpConns)) {
-      const conns = window.GutRush._pvpConns || [window.GutRush._pvpConn];
+    const numP = window.GutRush._pvpNumPlayers;
+    if (window.GutRush.pvpMode && window.GutRush._pvpConns) {
+      const conns = window.GutRush._pvpConns;
       const isHost = window.GutRush._pvpIsHost;
+      const myIdx = window.GutRush._pvpMyIdx;
+
       const showWait = () => {
-        const label = is3P ? 'players' : 'opponent';
-        this.pvpStatusText.setText(`Waiting for ${label} to finish...`);
+        const rest = numP - 1;
+        this.pvpStatusText.setText(`Waiting for ${rest} player${rest > 1 ? 's' : ''} to finish...`);
         this.tweens.add({ targets: this.pvpStatusText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
       };
       const showMatch = (match) => {
@@ -2424,79 +2339,60 @@ window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
         this.pvpStatusText.setAlpha(1);
         this.pvpStatusText.setText('Match complete!');
         window.GutRush.pvpMode = false;
-        if (is3P) this.showPvPComparison3P(match);
-        else this.showPvPComparison(match);
+        this.showPvPComparison(match);
         this.time.delayedCall(400, () => {
           const cleanup = () => {
             if (window.GutRush._pvpPeer) { window.GutRush._pvpPeer.destroy(); window.GutRush._pvpPeer = null; }
-            if (window.GutRush._pvpConn) { window.GutRush._pvpConn = null; }
             if (window.GutRush._pvpConns) { window.GutRush._pvpConns.forEach(c => { try { c.close(); } catch {} }); window.GutRush._pvpConns = null; }
           };
           this.add.text(w / 2 - 100, yOffset + 30, '[ Play Again ]', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-            cleanup();
+            cleanup(); window.GutRush.clearGame();
             this.cameras.main.fadeOut(300, 10, 10, 30);
             this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
           });
           this.add.text(w / 2 + 100, yOffset + 30, '[ Main Menu ]', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-            cleanup();
+            cleanup(); window.GutRush.clearGame();
             this.cameras.main.fadeOut(300, 10, 10, 30);
             this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('BootScene'));
           });
         });
       };
+
       const processMsg = (data) => {
         if (!data || this._pvpDone) return;
         if (isHost && data.type === 'score') {
-          if (is3P) {
-            if (!this._pvpScores) this._pvpScores = {};
-            this._pvpScores[data.playerIdx] = { name: data.name, score: data.score, breakdown: data.breakdown, result: data.result };
-            const p1 = this._pvpScores[1], p2 = this._pvpScores[2];
-            if (p1 && p2) {
-              const myName = window.GutRush.playerName || 'Player 1';
-              const match = {
-                player0: { name: myName, score: this.score.total, breakdown: this.score.breakdown, result: this.result },
-                player1: p1, player2: p2
-              };
-              showMatch(match);
-              conns.forEach(c => { if (c) c.send({ type: 'match', match }); });
-            }
-          } else {
-            const myName = window.GutRush.playerName || 'Player 1';
-            const match = {
-              player1: { name: myName, score: this.score.total, breakdown: this.score.breakdown, result: this.result },
-              player2: { name: data.name || 'Player 2', score: data.score, breakdown: data.breakdown, result: data.result }
-            };
+          if (!this._pvpScores) this._pvpScores = {};
+          this._pvpScores[data.playerIdx] = { name: data.name, score: data.score, breakdown: data.breakdown, result: data.result };
+          const allIn = Object.keys(this._pvpScores).length >= numP - 1;
+          if (allIn) {
+            const match = { [myIdx]: { name: window.GutRush.playerName || 'Host', score: this.score.total, breakdown: this.score.breakdown, result: this.result } };
+            Object.keys(this._pvpScores).forEach(idx => { match[Number(idx)] = this._pvpScores[idx]; });
             showMatch(match);
-            conns[0].send({ type: 'match', match });
+            conns.forEach(c => { if (c) c.send({ type: 'match', match }); });
           }
         } else if (!isHost && data.type === 'match') {
           showMatch(data.match);
         }
       };
 
-      // Process any already-buffered data (sent before we entered this scene)
-      if (is3P && Array.isArray(window.GutRush._pvpRecv)) {
-        window.GutRush._pvpRecv.forEach(d => processMsg(d));
-        window.GutRush._pvpRecv = [];
-      } else {
-        processMsg(window.GutRush._pvpRecv);
-        window.GutRush._pvpRecv = null;
-      }
+      window.GutRush._pvpRecv.forEach((d, i) => { if (d) this.time.delayedCall(i * 10, () => processMsg(d)); });
+      window.GutRush._pvpRecv = [];
 
       if (isHost) {
         conns.forEach(c => { if (c) c.on('data', processMsg); });
         if (!this._pvpDone) showWait();
       } else {
-        conns[0].send({ type: 'score', score: this.score.total, breakdown: this.score.breakdown, result: this.result, name: window.GutRush.playerName || 'Player 2', playerIdx: window.GutRush._pvpMyIdx });
+        conns[0].send({ type: 'score', score: this.score.total, breakdown: this.score.breakdown, result: this.result, name: window.GutRush.playerName || 'Joiner', playerIdx: window.GutRush._pvpMyIdx });
         conns[0].on('data', processMsg);
         if (!this._pvpDone) showWait();
       }
     }
 
-    const isPvpLocal = !!window.GutRush._pvpConn || !!window.GutRush._pvpConns;
+    const isPvpLocal = !!window.GutRush._pvpConns;
     if (!isPvpLocal) {
       const playAgain = this.add.text(w / 2, yOffset + 30, '[ Play Again ]', { fontSize: '20px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true });
       playAgain.on('pointerdown', () => {
+        window.GutRush.clearGame();
         this.cameras.main.fadeOut(300, 10, 10, 30);
         this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
       });
@@ -2505,62 +2401,26 @@ window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
 
   showPvPComparison(match) {
     const w = 800, h = 600;
-    const cx = w / 2, py = 240;
+    const cx = w / 2;
+    const players = Object.values(match).filter(Boolean);
+    const count = players.length;
+    if (count < 2) return;
+
+    const panelH = 20 + count * 34;
+    const py = Math.max(240, 300 - panelH / 2);
     const barW = 200, barH = 16;
 
     this.pvpPanel.clear();
     this.pvpPanel.lineStyle(1, 0x444466, 0.6);
-    this.pvpPanel.strokeRoundedRect(cx - 220, py - 10, 440, 100, 8);
+    this.pvpPanel.strokeRoundedRect(cx - 220, py - 10, 440, panelH, 8);
     this.pvpPanel.fillStyle(0x1a1a3a, 0.5);
-    this.pvpPanel.fillRoundedRect(cx - 220, py - 10, 440, 100, 8);
+    this.pvpPanel.fillRoundedRect(cx - 220, py - 10, 440, panelH, 8);
 
     this.pvpPanelTexts.forEach(t => t.destroy());
     this.pvpPanelTexts = [];
-
-    const p1 = match.player1, p2 = match.player2;
-    if (!p1 || !p2) return;
-
-    const maxScore = Math.max(p1.score, p2.score, 1);
-    const winner = window.GutRush.PvPManager.getWinner(match);
-    const gradeColor = s => s >= 80 ? '#4CAF50' : s >= 50 ? '#FF9800' : '#f44336';
-    const gradeColorInt = s => s >= 80 ? 0x4CAF50 : s >= 50 ? 0xFF9800 : 0xf44336;
-
-    const addPVP = (label, score, idx) => {
-      const y = py + 10 + idx * 34;
-      const txt = this.add.text(cx - 200, y, `${label}: ${score}`, { fontSize: '15px', fill: gradeColor(score), fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
-      this.pvpPanelTexts.push(txt);
-      const barBg = this.add.rectangle(cx, y + 12, barW, barH, 0x333333).setOrigin(0, 0.5);
-      this.pvpPanelTexts.push(barBg);
-      const bar = this.add.rectangle(cx, y + 12, barW * (score / maxScore), barH - 2, gradeColorInt(score)).setOrigin(0, 0.5);
-      this.pvpPanelTexts.push(bar);
-    };
-
-    addPVP(p1.name, p1.score, 0);
-    addPVP(p2.name, p2.score, 1);
-
-    const resultTxt = this.add.text(cx + 150, py + 40, winner ? `Winner: ${winner.name}` : 'Tie!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
-    this.pvpPanelTexts.push(resultTxt);
-  }
-
-  showPvPComparison3P(match) {
-    const w = 800, h = 600;
-    const cx = w / 2, py = 240;
-    const barW = 200, barH = 16;
-
-    this.pvpPanel.clear();
-    this.pvpPanel.lineStyle(1, 0x444466, 0.6);
-    this.pvpPanel.strokeRoundedRect(cx - 220, py - 10, 440, 130, 8);
-    this.pvpPanel.fillStyle(0x1a1a3a, 0.5);
-    this.pvpPanel.fillRoundedRect(cx - 220, py - 10, 440, 130, 8);
-
-    this.pvpPanelTexts.forEach(t => t.destroy());
-    this.pvpPanelTexts = [];
-
-    const players = [match.player0, match.player1, match.player2].filter(Boolean);
-    if (players.length < 2) return;
 
     const maxScore = Math.max(...players.map(p => p.score), 1);
-    const winner = window.GutRush.PvPManager.getWinner3P(match);
+    const winner = window.GutRush.PvPManager.getWinner(match);
     const gradeColor = s => s >= 80 ? '#4CAF50' : s >= 50 ? '#FF9800' : '#f44336';
     const gradeColorInt = s => s >= 80 ? 0x4CAF50 : s >= 50 ? 0xFF9800 : 0xf44336;
 
@@ -2576,7 +2436,8 @@ window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
 
     players.forEach((p, i) => addPVP(p.name, p.score, i));
 
-    const resultTxt = this.add.text(cx + 150, py + 55, winner ? `Winner: ${winner.name}` : 'Tie!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    const resultY = py + 10 + count * 34 + 10;
+    const resultTxt = this.add.text(cx + 150, resultY, winner ? `Winner: ${winner.name}` : 'Tie!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
     this.pvpPanelTexts.push(resultTxt);
   }
 };
