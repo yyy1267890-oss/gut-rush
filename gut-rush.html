@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gut Rush</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body { background: #0a0a1a; display: flex; justify-content: center; align-items: center; user-select: none; -webkit-user-select: none; }
+#game-container { width: 800px; height: 600px; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="game-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+window.GutRush = window.GutRush || {};
+window.GutRush.FOODS = [
+  // === VEGETABLES ===
+  { id: 'peas', name: 'Peas', cat: 'Vegetables', coins: 6, fiber: 9, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'High fiber, great for bulk' },
+  { id: 'broccoli', name: 'Broccoli', cat: 'Vegetables', coins: 5, fiber: 5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Good fiber + nutrients' },
+  { id: 'brussels', name: 'Brussels Sprouts', cat: 'Vegetables', coins: 5, fiber: 4.5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Fiber-rich green veg' },
+  { id: 'carrots', name: 'Carrots', cat: 'Vegetables', coins: 4, fiber: 1.5, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Mild fiber, easy to digest' },
+  { id: 'corn', name: 'Sweet Corn', cat: 'Vegetables', coins: 4, fiber: 4, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Good fiber, passes through' },
+  { id: 'spinach', name: 'Leafy Greens', cat: 'Vegetables', coins: 5, fiber: 4, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Nutrient dense, mild fiber' },
+  { id: 'potato', name: 'Baked Potato', cat: 'Vegetables', coins: 5, fiber: 4, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Skin-on for max fiber' },
+  { id: 'cauliflower', name: 'Cauliflower', cat: 'Vegetables', coins: 3, fiber: 2, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Low calorie, mild fiber' },
+
+  // === FRUITS ===
+  { id: 'prunes', name: 'Prunes', cat: 'Fruits', coins: 10, fiber: 7, fat: 0, water: 1, sorbitol: 1, stimulant: 0, desc: 'Strong laxative effect + fiber!' },
+  { id: 'kiwi', name: 'Kiwifruit', cat: 'Fruits', coins: 8, fiber: 5, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Proven to increase stool frequency' },
+  { id: 'raspberries', name: 'Raspberries', cat: 'Fruits', coins: 8, fiber: 8, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: '8g fiber per cup!' },
+  { id: 'apple', name: 'Apple (with skin)', cat: 'Fruits', coins: 6, fiber: 4.5, fat: 0, water: 1, sorbitol: 0.5, stimulant: 0, desc: 'Pectin + sorbitol = gentle help' },
+  { id: 'pear', name: 'Pear', cat: 'Fruits', coins: 7, fiber: 5.5, fat: 0, water: 1, sorbitol: 0.5, stimulant: 0, desc: 'High fiber, mild sorbitol' },
+  { id: 'banana', name: 'Banana', cat: 'Fruits', coins: 5, fiber: 3, fat: 0, water: 1, sorbitol: 0, stimulant: 0, desc: 'Pectin fiber, gentle' },
+
+  // === JUNK FOOD ===
+  { id: 'grimace_shake', name: 'Grimace Shake', cat: 'Junk Food', coins: 4, fiber: 0, fat: 6, water: 0, sorbitol: 0, stimulant: 0, desc: 'One sip and your gut becomes a biohazard' },
+  { id: 'fanum_tax', name: 'Fanum Taxed Meal', cat: 'Interactable', coins: 3, fiber: 0, fat: 0, water: 0, sorbitol: 0, stimulant: 0, desc: 'Your friend snatched 30% mid-bite (auto-used — may steal opponent food)' },
+  { id: 'rizzler_slice', name: 'Rizzler\'s Slice', cat: 'Junk Food', coins: 4, fiber: 0, fat: 7, water: 0, sorbitol: 0, stimulant: 0, desc: 'Zero crust, infinite cheese, max aura' },
+  { id: 'trippi_troppi', name: 'Trippi Troppi', cat: 'Junk Food', coins: 5, fiber: 0, fat: 5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Deep-fried shrimp-cat, meows in auto-tune' },
+
+  // === DRINKS ===
+  { id: 'coffee', name: 'Coffee', cat: 'Drinks', coins: 8, fiber: 0, fat: 0, water: 1, sorbitol: 0, stimulant: 1, desc: 'Stimulates colon contractions!' },
+  { id: 'prune_juice', name: 'Prune Juice', cat: 'Drinks', coins: 10, fiber: 2, fat: 0, water: 2, sorbitol: 1, stimulant: 0, desc: 'Powerful natural laxative' },
+  { id: 'mag_water', name: 'Mineral Water', cat: 'Drinks', coins: 7, fiber: 0, fat: 0, water: 2, sorbitol: 0, stimulant: 0, desc: 'Magnesium = osmotic effect' },
+  { id: 'water', name: 'Plain Water', cat: 'Drinks', coins: 5, fiber: 0, fat: 0, water: 2, sorbitol: 0, stimulant: 0, desc: 'Essential for fiber to work' },
+  { id: 'soda', name: 'Soda', cat: 'Drinks', coins: 2, fiber: 0, fat: 0, water: 0, sorbitol: 0, stimulant: 0, desc: 'Empty calories, no help' },
+  { id: 'milk', name: 'Milk', cat: 'Drinks', coins: 4, fiber: 0, fat: 3, water: 1, sorbitol: 0, stimulant: 0, desc: 'Can constipate some people' },
+
+  // === GRAINS ===
+  { id: 'oatmeal', name: 'Oatmeal', cat: 'Grains', coins: 6, fiber: 4, fat: 1, water: 1, sorbitol: 0, stimulant: 0, desc: 'Soluble fiber, gentle bulk' },
+  { id: 'rye_bread', name: 'Rye Bread', cat: 'Grains', coins: 5, fiber: 4, fat: 0.5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Better than white bread!' },
+  { id: 'ww_pasta', name: 'Whole Wheat Pasta', cat: 'Grains', coins: 6, fiber: 6, fat: 1, water: 0, sorbitol: 0, stimulant: 0, desc: 'High fiber grain option' },
+  { id: 'brown_rice', name: 'Brown Rice', cat: 'Grains', coins: 5, fiber: 3.5, fat: 0.5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Whole grain, steady fiber' },
+
+  // === LEGUMES ===
+  { id: 'lentils', name: 'Lentils', cat: 'Legumes', coins: 9, fiber: 15.5, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: 'Massive fiber punch!' },
+  { id: 'black_beans', name: 'Black Beans', cat: 'Legumes', coins: 9, fiber: 15, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: '15g fiber, excellent bulk' },
+  { id: 'split_peas', name: 'Split Peas', cat: 'Legumes', coins: 8, fiber: 16, fat: 0.5, water: 1, sorbitol: 0, stimulant: 0, desc: '16g fiber, very filling' },
+
+  // === FATS & SEEDS ===
+  { id: 'olive_oil', name: 'Olive Oil', cat: 'Fats/Seeds', coins: 7, fiber: 0, fat: 5, water: 0, sorbitol: 0, stimulant: 0, desc: 'Stimulates bile flow' },
+  { id: 'chia', name: 'Chia Seeds', cat: 'Fats/Seeds', coins: 9, fiber: 10, fat: 3, water: 1, sorbitol: 0, stimulant: 0, desc: 'Gel-forming fiber bomb' },
+  { id: 'almonds', name: 'Almonds', cat: 'Fats/Seeds', coins: 6, fiber: 3.5, fat: 3, water: 0, sorbitol: 0, stimulant: 0, desc: 'Fiber + healthy fats' },
+];
+
+window.GutRush.DigestionEngine = class DigestionEngine {
+  static calculate(foods) {
+    if (!foods || foods.length === 0) {
+      return { bristolType: 1, label: 'Type 1 - Hard Lumps', transitSpeed: 0.3, scoreLabel: 'Constipation - No fiber intake!', foodCount: 0 };
+    }
+
+    let totalFiber = 0, totalFat = 0, totalWater = 0, hasSorbitol = 0, hasStimulant = 0;
+
+    for (const f of foods) {
+      totalFiber += f.fiber || 0;
+      totalFat += f.fat || 0;
+      totalWater += f.water || 0;
+      if (f.sorbitol) hasSorbitol = 1;
+      if (f.stimulant) hasStimulant = 1;
+    }
+
+    let bristolType;
+    let label;
+    let transitSpeed;
+    let scoreLabel;
+
+    const fiberScore = totalFiber;
+    const fatScore = totalFat;
+
+    if (hasSorbitol && hasStimulant) {
+      if (fiberScore >= 20 && fatScore < 8) {
+        bristolType = 6; label = 'Type 6 - Fluffy & mushy'; transitSpeed = 2.0;
+        scoreLabel = 'Too fast! Fiber + stimulants + sorbitol rushed things';
+      } else {
+        bristolType = 7; label = 'Type 7 - Watery'; transitSpeed = 2.5;
+        scoreLabel = 'Emergency! Sorbitol + stimulants = rush to the toilet';
+      }
+    } else if (fiberScore >= 30 && totalWater < 2) {
+      bristolType = 1; label = 'Type 1 - Hard lumps'; transitSpeed = 0.3;
+      scoreLabel = 'Paradoxical! High fiber but no water = concrete-like stool';
+    } else if (fiberScore >= 25 && (hasSorbitol || hasStimulant)) {
+      bristolType = 5; label = 'Type 5 - Soft blobs'; transitSpeed = 1.8;
+      scoreLabel = 'Loose stool - too much fiber combined with sorbitol or stimulants';
+    } else if (fiberScore >= 10 && hasSorbitol) {
+      bristolType = 5; label = 'Type 5 - Soft blobs'; transitSpeed = 1.5;
+      scoreLabel = 'Fiber + sorbitol made things loose';
+    } else if (fiberScore >= 20 && fatScore < 5) {
+      bristolType = 3; label = 'Type 3 - Sausage with cracks (Ideal)'; transitSpeed = 1.0;
+      scoreLabel = 'Ideal! Well-balanced high fiber intake';
+    } else if (fiberScore >= 15 && fatScore < 8) {
+      bristolType = 4; label = 'Type 4 - Smooth & soft (Ideal)'; transitSpeed = 1.0;
+      scoreLabel = 'Great! Smooth and healthy stool';
+    } else if (fiberScore < 5 && fatScore >= 10) {
+      bristolType = 1; label = 'Type 1 - Hard lumps'; transitSpeed = 0.2;
+      scoreLabel = 'Constipation - Too much junk food, no fiber';
+    } else if (fiberScore >= 15 && fatScore >= 8) {
+      bristolType = 2; label = 'Type 2 - Lumpy sausage'; transitSpeed = 0.4;
+      scoreLabel = 'Fat slowed things down despite decent fiber';
+    } else if (fiberScore < 8 && fatScore >= 5) {
+      bristolType = 2; label = 'Type 2 - Lumpy sausage'; transitSpeed = 0.35;
+      scoreLabel = 'Constipated - Low fiber, high fat diet';
+    } else if (fiberScore >= 10 && fiberScore < 15) {
+      bristolType = 3; label = 'Type 3 - Sausage with cracks'; transitSpeed = 0.8;
+      scoreLabel = 'Decent! Moderate fiber gave a reasonable result';
+    } else if (fiberScore >= 8 && fiberScore < 10) {
+      bristolType = 3; label = 'Type 3 - Sausage with cracks'; transitSpeed = 0.7;
+      scoreLabel = 'Moderate fiber, decent result';
+    } else {
+      bristolType = 2; label = 'Type 2 - Lumpy sausage'; transitSpeed = 0.4;
+      scoreLabel = 'Suboptimal - try eating more fiber-rich foods next time';
+    }
+
+    return { bristolType, label, transitSpeed, scoreLabel, totalFiber, totalFat, totalWater, hasSorbitol, hasStimulant, foodCount: foods.length };
+  }
+};
+
+window.GutRush.ScoreCalculator = class ScoreCalculator {
+  static calculate(result, tapPerformance, egestionSkill, totalElapsed) {
+    const { bristolType, totalFiber, totalFat, totalWater } = result;
+    const maxTap = tapPerformance || 0;
+
+    let shapeScore = 0;
+    if (bristolType === 3 || bristolType === 4) shapeScore = 20;
+    else if (bristolType === 5) shapeScore = 14;
+    else if (bristolType === 2) shapeScore = 10;
+    else if (bristolType === 1) shapeScore = 4;
+    else if (bristolType === 6) shapeScore = 8;
+    else if (bristolType === 7) shapeScore = 2;
+
+    let sizeScore = 0;
+    const foodCount = result.foodCount || 1;
+    if (foodCount >= 8) sizeScore = 15;
+    else if (foodCount >= 6) sizeScore = 12;
+    else if (foodCount >= 4) sizeScore = 9;
+    else if (foodCount >= 2) sizeScore = 6;
+    else sizeScore = 3;
+
+    let consistencyScore = 0;
+    const fiberRatio = totalFiber / Math.max(1, totalFiber + totalFat);
+    if (fiberRatio > 0.7 && totalWater >= 1) consistencyScore = 15;
+    else if (fiberRatio > 0.5 && totalWater >= 1) consistencyScore = 12;
+    else if (fiberRatio > 0.3) consistencyScore = 8;
+    else if (totalFat > totalFiber) consistencyScore = 3;
+    else consistencyScore = 6;
+
+    let speedScore = 0;
+    if (totalElapsed !== undefined) {
+      if (totalElapsed < 45) speedScore = 10;
+      else if (totalElapsed < 60) speedScore = 8;
+      else if (totalElapsed < 90) speedScore = 6;
+      else if (totalElapsed < 120) speedScore = 4;
+      else speedScore = 2;
+    }
+
+    let controlScore = 0;
+    if (maxTap >= 12) controlScore = 15;
+    else if (maxTap >= 8) controlScore = 12;
+    else if (maxTap >= 5) controlScore = 9;
+    else if (maxTap >= 2) controlScore = 6;
+    else controlScore = 3;
+
+    let egestionScore = 0;
+    if (egestionSkill === undefined) egestionScore = controlScore;
+    else if (egestionSkill >= 3) egestionScore = 40;
+    else if (egestionSkill >= 2) egestionScore = 30;
+    else if (egestionSkill >= 1.5) egestionScore = 20;
+    else if (egestionSkill >= 0.5) egestionScore = 10;
+    else egestionScore = 4;
+
+    return {
+      shapeScore,
+      sizeScore,
+      consistencyScore,
+      speedScore,
+      controlScore,
+      egestionScore,
+      total: shapeScore + sizeScore + consistencyScore + speedScore + (egestionSkill === undefined ? controlScore : egestionScore),
+      breakdown: [
+        { name: 'Shape', score: shapeScore, max: 20, detail: bristolType === 3 || bristolType === 4 ? 'Ideal Bristol type!' : `Bristol Type ${bristolType} - not optimal` },
+        { name: 'Size/Amount', score: sizeScore, max: 15, detail: foodCount >= 6 ? 'Good variety of foods' : 'Too few food items' },
+        { name: 'Consistency', score: consistencyScore, max: 15, detail: fiberRatio > 0.5 && totalWater >= 1 ? 'Good fiber-water balance' : fiberRatio > 0.3 ? 'Moderate balance' : 'Poor fiber-water balance' },
+        { name: 'Speed', score: speedScore, max: 10, detail: totalElapsed !== undefined ? `Cleared in ${totalElapsed.toFixed(0)}s` : 'Time not tracked' },
+        { name: egestionSkill === undefined ? 'Passage Control' : 'Egestion Skill', score: egestionSkill === undefined ? controlScore : egestionScore, max: 40, detail: egestionSkill >= 2 ? 'Perfect release timing!' : egestionSkill >= 1 ? 'Decent timing' : 'Poor release timing' },
+      ]
+    };
+  }
+};
+
+window.GutRush.PvPManager = class PvPManager {
+  static generateMatch(code) {
+    return new Promise((resolve, reject) => {
+      const peer = new Peer(code);
+      const timeout = setTimeout(() => reject(new Error('Timed out waiting for opponent')), 120000);
+      peer.on('open', () => {
+        peer.on('connection', (conn) => {
+          clearTimeout(timeout);
+          resolve({ conn, peer });
+        });
+      });
+      peer.on('error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+  }
+
+  static generateMatch3P(code) {
+    return new Promise((resolve, reject) => {
+      const peer = new Peer(code);
+      const timeout = setTimeout(() => reject(new Error('Timed out waiting for players')), 120000);
+      const conns = [];
+      peer.on('open', () => {
+        peer.on('connection', (conn) => {
+          conns.push(conn);
+          if (conns.length === 2) {
+            clearTimeout(timeout);
+            resolve({ conns, peer });
+          }
+        });
+      });
+      peer.on('error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+  }
+
+  static joinMatch(code) {
+    return new Promise((resolve, reject) => {
+      const peer = new Peer();
+      const timeout = setTimeout(() => reject(new Error('Connection timed out')), 20000);
+      peer.on('open', () => {
+        const conn = peer.connect(code, { reliable: true });
+        const connTimeout = setTimeout(() => reject(new Error('Failed to reach host')), 15000);
+        conn.on('open', () => {
+          clearTimeout(connTimeout);
+          clearTimeout(timeout);
+          conn.send({ type: 'join_request' });
+          const welcomeTimeout = setTimeout(() => reject(new Error('No response from host')), 15000);
+          conn.on('data', (d) => {
+            if (d.type === 'welcome') {
+              clearTimeout(welcomeTimeout);
+              resolve({ conn, peer, playerIdx: d.playerIdx, numPlayers: d.numPlayers });
+            }
+          });
+        });
+        conn.on('error', (err) => { clearTimeout(timeout); reject(err); });
+      });
+      peer.on('error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+  }
+
+  static getWinner(match) {
+    if (!match || !match.player1 || !match.player2) return null;
+    if (match.player1.score > match.player2.score) return match.player1;
+    if (match.player2.score > match.player1.score) return match.player2;
+    return null;
+  }
+
+  static getWinner3P(match) {
+    if (!match) return null;
+    const players = [match.player0, match.player1, match.player2].filter(Boolean);
+    if (players.length < 2) return null;
+    let best = players[0];
+    for (let i = 1; i < players.length; i++) {
+      if (players[i].score > best.score) best = players[i];
+    }
+    return best;
+  }
+};
+
+window.GutRush.BootScene = class BootScene extends Phaser.Scene {
+  constructor() { super('BootScene'); }
+
+  preload() {
+    const g = this.make.graphics({ add: false });
+    g.fillStyle(0x8B4513, 1);
+    g.fillCircle(8, 8, 8);
+    g.generateTexture('bolus', 16, 16);
+    const pg = this.make.graphics({ add: false });
+    pg.fillStyle(0xffffff, 1);
+    pg.fillCircle(2, 2, 2);
+    pg.generateTexture('particle', 4, 4);
+    pg.destroy();
+    g.destroy();
+  }
+
+  create() {
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+
+    this.showMainMenu();
+  }
+
+  promptNickname(callback) {
+    const w = 800, h = 600, pixelFont = '"Press Start 2P", monospace';
+    this.cameras.main.setBackgroundColor('#0a0a2e');
+
+    const overlay = this.add.graphics(); overlay.setDepth(5);
+    const gradSteps = 60;
+    for (let i = 0; i < gradSteps; i++) {
+      const t = i / gradSteps;
+      const r = Math.round(Phaser.Math.Linear(16, 10, t));
+      const g = Math.round(Phaser.Math.Linear(16, 10, t));
+      const b = Math.round(Phaser.Math.Linear(46, 26, t));
+      overlay.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 1);
+      overlay.fillRect(0, (i / gradSteps) * h, w, h / gradSteps + 1);
+    }
+
+    const scanlines = this.add.graphics(); scanlines.setDepth(6);
+    for (let y = 0; y < h; y += 4) {
+      scanlines.fillStyle(0x000000, 0.06);
+      scanlines.fillRect(0, y, w, 1);
+    }
+
+    const particles = this.add.particles(0, 0, 'particle', {
+      x: { min: 0, max: w }, y: h + 10,
+      speed: { min: 8, max: 25 }, angle: { min: 255, max: 285 },
+      scale: { start: 0.6, end: 0 }, alpha: { start: 0.5, end: 0 },
+      lifespan: { min: 6000, max: 12000 }, frequency: 400, quantity: 1,
+      blendMode: 'ADD'
+    }); particles.setDepth(7);
+
+    const title = this.add.text(w / 2, 80, 'GUT RUSH', { fontSize: '42px', fill: '#e94560', fontFamily: pixelFont, fontStyle: 'bold' }).setOrigin(0.5).setDepth(10);
+    title.setShadow(0, 0, '#ff6b6b', 3, true, true);
+
+    const nicknameText = this.add.text(w / 2, 155, 'Enter your nickname', { fontSize: '11px', fill: '#FFE082', fontFamily: pixelFont }).setOrigin(0.5).setDepth(15);
+    const nameDisplay = this.add.text(w / 2, 230, '_', { fontSize: '32px', fill: '#fff', fontFamily: pixelFont }).setOrigin(0.5).setDepth(15);
+    this.tweens.add({ targets: nameDisplay, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+
+    let name = '';
+    const isBrainrot = (s) => /\b67\b/.test(s) || s.toLowerCase().includes('skibidi');
+    const rejectBrainrot = () => {
+      const ft = this.add.text(w / 2, 270, 'NO BRAINROT!', { fontSize: '14px', fill: '#f44336', fontFamily: pixelFont, stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(30);
+      this.tweens.add({ targets: ft, alpha: 0, y: 290, duration: 1500, onComplete: () => ft.destroy() });
+    };
+    const mobileInput = document.createElement('input');
+    mobileInput.type = 'text'; mobileInput.autocomplete = 'off'; mobileInput.autocorrect = 'off';
+    mobileInput.autocapitalize = 'off'; mobileInput.spellcheck = false;
+    Object.assign(mobileInput.style, {
+      position: 'fixed', left: '-200px', top: '-200px', width: '1px', height: '1px',
+      opacity: '0', pointerEvents: 'none', zIndex: '-1'
+    });
+    document.body.appendChild(mobileInput);
+    const cleanup = () => {
+      window.removeEventListener('keydown', keyHandler);
+      mobileInput.removeEventListener('input', inputHandler);
+      mobileInput.removeEventListener('blur', blurHandler);
+      document.body.removeChild(mobileInput);
+      const all = [nicknameText, nameDisplay, overlay, scanlines, particles, title, hint, confirmBtn, confirmBg];
+      all.forEach(e => e.destroy());
+    };
+    const accept = () => {
+      if (name.length > 0 && !isBrainrot(name)) {
+        window.GutRush.playerName = name;
+        cleanup();
+        callback(name);
+      } else if (isBrainrot(name)) {
+        rejectBrainrot();
+      }
+    };
+    const updateDisplay = () => { nameDisplay.setText((name + '_').slice(0, 15)); if (name.length > 0) nameDisplay.setAlpha(1); };
+    const sanitize = (s) => s.replace(/[^\w ]/g, '').slice(0, 14);
+    let ignoreNextInput = false;
+    const inputHandler = () => {
+      if (ignoreNextInput) { ignoreNextInput = false; return; }
+      name = sanitize(mobileInput.value);
+      ignoreNextInput = true;
+      mobileInput.value = name;
+      updateDisplay();
+    };
+    const blurHandler = () => { this.time.delayedCall(100, () => { if (mobileInput.isConnected) mobileInput.focus(); }); };
+    const keyHandler = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); accept(); }
+    };
+    window.addEventListener('keydown', keyHandler);
+    mobileInput.addEventListener('input', inputHandler);
+    mobileInput.addEventListener('blur', blurHandler);
+    this.time.delayedCall(200, () => { mobileInput.focus(); });
+
+    const hint = this.add.text(w / 2, 290, 'Up to 14 characters — tap Confirm when done', { fontSize: '8px', fill: '#bbb', fontFamily: pixelFont }).setOrigin(0.5).setDepth(10);
+
+    const confirmBg = this.add.graphics(); confirmBg.setDepth(10);
+    const btnW = 200, btnH = 44, btnX = w / 2 - btnW / 2, btnY = 325;
+    const drawBtn = (fill, stroke) => {
+      confirmBg.clear();
+      confirmBg.fillStyle(fill, 1);
+      confirmBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+      confirmBg.lineStyle(2, stroke, 1);
+      confirmBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 8);
+    };
+    drawBtn(0x0d3b0d, 0x4CAF50);
+    const confirmBtn = this.add.text(w / 2, btnY + btnH / 2, 'CONFIRM', { fontSize: '11px', fill: '#81C784', fontFamily: pixelFont }).setOrigin(0.5).setDepth(11).setInteractive({ useHandCursor: true });
+    confirmBtn.on('pointerover', () => { drawBtn(0x1a5c1a, 0x66BB6A); confirmBtn.setScale(1.08); confirmBtn.setFill('#A5D6A7'); });
+    confirmBtn.on('pointerout', () => { drawBtn(0x0d3b0d, 0x4CAF50); confirmBtn.setScale(1); confirmBtn.setFill('#81C784'); });
+    confirmBtn.on('pointerdown', accept);
+  }
+
+  showMainMenu() {
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+    const withNickname = (fn) => {
+      if (window.GutRush.playerName) { fn(); }
+      else { this.promptNickname(() => fn()); }
+    };
+
+    this.cameras.main.setBackgroundColor('#0a0a1a');
+    const title = this.add.text(w / 2, h / 2 - 70, 'GUT RUSH', { fontSize: '56px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
+    const sub = this.add.text(w / 2, h / 2 - 10, 'A Digestion Adventure', { fontSize: '16px', fill: '#888', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setAlpha(0);
+
+    this.tweens.add({ targets: title, alpha: 1, y: h / 2 - 60, duration: 800, ease: 'Power2' });
+    this.tweens.add({ targets: sub, alpha: 1, duration: 1000, delay: 400 });
+
+    const playBtn = this.add.text(w / 2, h / 2 + 30, '[ Play ]', { fontSize: '22px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const pvpBtn = this.add.text(w / 2, h / 2 + 75, '[ PvP Battle ]', { fontSize: '18px', fill: '#FF9800', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const pvp3Btn = this.add.text(w / 2, h / 2 + 110, '[ PvP 3-Player ]', { fontSize: '14px', fill: '#AB47BC', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const joinBtn = this.add.text(w / 2, h / 2 + 145, '[ Join Match ]', { fontSize: '14px', fill: '#42A5F5', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+    const howBtn = this.add.text(w / 2, h / 2 + 180, '[ How to Play ]', { fontSize: '14px', fill: '#888', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    this.time.delayedCall(1300, () => {
+      this.tweens.add({ targets: [playBtn, pvpBtn, pvp3Btn, joinBtn], alpha: 1, duration: 500 });
+      this.tweens.add({ targets: howBtn, alpha: 0.7, duration: 500 });
+    });
+
+    playBtn.on('pointerover', () => playBtn.setFill('#81C784'));
+    playBtn.on('pointerout', () => playBtn.setFill('#4CAF50'));
+    playBtn.on('pointerdown', () => { window.GutRush.pvpMode = false; this.startGame(); });
+
+    pvpBtn.on('pointerover', () => pvpBtn.setFill('#FFB74D'));
+    pvpBtn.on('pointerout', () => pvpBtn.setFill('#FF9800'));
+    pvpBtn.on('pointerdown', () => withNickname(() => this.startPvPHost()));
+
+    pvp3Btn.on('pointerover', () => pvp3Btn.setFill('#CE93D8'));
+    pvp3Btn.on('pointerout', () => pvp3Btn.setFill('#AB47BC'));
+    pvp3Btn.on('pointerdown', () => withNickname(() => this.startPvPHost3P()));
+
+    joinBtn.on('pointerover', () => joinBtn.setFill('#64B5F6'));
+    joinBtn.on('pointerout', () => joinBtn.setFill('#42A5F5'));
+    joinBtn.on('pointerdown', () => withNickname(() => this.showCodeEntry()));
+
+    howBtn.on('pointerover', () => howBtn.setFill('#ccc'));
+    howBtn.on('pointerout', () => howBtn.setFill('#888'));
+    howBtn.on('pointerdown', () => {
+      const overlay = this.add.graphics();
+      overlay.fillStyle(0x0a0a1a, 0.95);
+      overlay.fillRect(0, 0, w, h);
+      overlay.setDepth(20);
+
+      const lines = [
+        'HOW TO PLAY',
+        '',
+        '1. Buy foods in the Shop to build your meal',
+        '2. Watch your food travel through the digestive system',
+        '3. Tap to speed up peristalsis!',
+        '4. In the Egestion phase, HOLD and RELEASE',
+        '   the arrow in the green IDEAL zone',
+        '5. Get scored on Shape, Size, Consistency,',
+        '   Speed, and Egestion timing',
+        '',
+        'PvP (2-Player or 3-Player):',
+        'Create a code, share with friends.',
+        'All play at the same time, then compare scores!',
+      ];
+      const howText = this.add.text(w / 2, h / 2 - 120, lines.join('\n'), { fontSize: '15px', fill: '#ddd', fontFamily: 'Arial, sans-serif', align: 'center', lineSpacing: 6 }).setOrigin(0.5).setDepth(25);
+      const closeBtn = this.add.text(w / 2, h / 2 + 160, '[ Close ]', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+      closeBtn.on('pointerdown', () => { overlay.destroy(); howText.destroy(); closeBtn.destroy(); });
+    });
+  }
+
+  startGame() {
+    this.cameras.main.fadeOut(300, 10, 10, 30);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
+  }
+
+  showPvPOverlay(code) {
+    return this._showPvPOverlay(code, 2);
+  }
+
+  showPvPOverlay3P(code) {
+    return this._showPvPOverlay(code, 3);
+  }
+
+  _showPvPOverlay(code, numPlayers) {
+    const w = 800, h = 600;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0a0a1a, 0.95);
+    bg.fillRect(0, 0, w, h);
+    bg.setDepth(20);
+    bg.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+
+    const playerLabel = numPlayers === 3 ? 'Player 2 & Player 3' : 'Player 2';
+    this.add.text(w / 2, 150, `Share this code with ${playerLabel}`, { fontSize: '16px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25);
+    const codeText = this.add.text(w / 2, 220, code, { fontSize: '52px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    const copyHint = this.add.text(w / 2, 260, '(tap code to copy)', { fontSize: '14px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(25);
+    codeText.on('pointerdown', () => { navigator.clipboard.writeText(code).catch(() => {}); copyHint.setText('✓ Copied!'); });
+
+    const totalJoiners = numPlayers - 1;
+    let joinedCount = 0;
+    const waitText = this.add.text(w / 2, 330, `Waiting for players to join... (${joinedCount}/${totalJoiners})`, { fontSize: '18px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
+    this.tweens.add({ targets: waitText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+    return { overlay: bg, elements: [bg, codeText, copyHint, waitText], updateJoinCount: (n) => { joinedCount = n; waitText.setText(`Waiting for players to join... (${joinedCount}/${totalJoiners})`); } };
+  }
+
+  startPvPHost() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const ov = this.showPvPOverlay(code);
+    window.GutRush._pvpIsHost = true;
+    window.GutRush.pvpCode = code;
+
+    window.GutRush.PvPManager.generateMatch(code).then(({ conn, peer }) => {
+      window.GutRush._pvpConn = conn;
+      window.GutRush._pvpPeer = peer;
+      window.GutRush._pvpRecv = null;
+      conn.on('data', (d) => {
+        if (d.type === 'join_request') conn.send({ type: 'welcome', playerIdx: 1, numPlayers: 2 });
+        else window.GutRush._pvpRecv = d;
+      });
+      ov.elements.forEach(e => e.destroy());
+      window.GutRush.pvpMode = true;
+      this.startGame();
+    }).catch(() => {
+      ov.elements.forEach(e => e.destroy());
+      this.add.text(400, 300, 'Connection failed — try again', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
+    });
+  }
+
+  startPvPHost3P() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const ov = this.showPvPOverlay3P(code);
+    window.GutRush._pvpIsHost = true;
+    window.GutRush.pvpCode = code;
+
+    window.GutRush.PvPManager.generateMatch3P(code).then(({ conns, peer }) => {
+      window.GutRush._pvpConns = conns;
+      window.GutRush._pvpPeer = peer;
+      window.GutRush._pvpRecv = [];
+      conns.forEach((conn, i) => {
+        const playerIdx = i + 1;
+        conn.send({ type: 'welcome', playerIdx });
+        conn.on('data', (d) => { window.GutRush._pvpRecv[i] = d; });
+      });
+      ov.elements.forEach(e => e.destroy());
+      window.GutRush.pvpMode = true;
+      window.GutRush._pvpNumPlayers = 3;
+      window.GutRush._pvpMyIdx = 0;
+      this.startGame();
+    }).catch(() => {
+      ov.elements.forEach(e => e.destroy());
+      this.add.text(400, 300, 'Failed to find enough players', { fontSize: '16px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
+    });
+  }
+
+  showCodeEntry() {
+    const w = 800, h = 600;
+    let entered = '';
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x0a0a1a, 0.95);
+    overlay.fillRect(0, 0, w, h);
+    overlay.setDepth(20);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const title = this.add.text(w / 2, 80, 'Enter PvP Code', { fontSize: '22px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25);
+    const codeDisplay = this.add.text(w / 2, 160, '_ _ _ _ _ _', { fontSize: '48px', fill: '#fff', fontFamily: 'monospace', fontStyle: 'bold' }).setOrigin(0.5).setDepth(25);
+
+    const updateDisplay = () => { codeDisplay.setText(entered.padEnd(6, '_').split('').join(' ')); };
+
+    const keyHandler = (e) => {
+      const ch = e.key.toUpperCase();
+      if (chars.includes(ch) && entered.length < 6) {
+        entered += ch; updateDisplay();
+      } else if (e.key === 'Backspace') {
+        entered = entered.slice(0, -1); updateDisplay();
+      } else if (e.key === 'Enter' && entered.length === 6) {
+        cleanup(); this.joinMatch(entered);
+      }
+    };
+    window.addEventListener('keydown', keyHandler);
+
+    const cleanup = () => {
+      window.removeEventListener('keydown', keyHandler);
+      overlay.destroy(); title.destroy(); codeDisplay.destroy();
+      submitBtn.destroy(); cancelBtn.destroy(); pasteBtn.destroy();
+    };
+
+    const submitBtn = this.add.text(w / 2 - 90, 280, '[ Submit ]', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    submitBtn.on('pointerdown', () => { if (entered.length === 6) { cleanup(); this.joinMatch(entered); } });
+
+    const cancelBtn = this.add.text(w / 2 + 90, 280, '[ Cancel ]', { fontSize: '18px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    cancelBtn.on('pointerdown', cleanup);
+
+    const pasteBtn = this.add.text(w / 2, 340, '[ Paste ]', { fontSize: '16px', fill: '#66BB6A', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
+    pasteBtn.on('pointerdown', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const filtered = text.toUpperCase().split('').filter(ch => chars.includes(ch)).join('').slice(0, 6);
+        if (filtered.length > 0) { entered = filtered; updateDisplay(); pasteBtn.setText('✓ Pasted!'); this.time.delayedCall(800, () => pasteBtn.setText('[ Paste ]')); }
+      } catch {}
+    });
+  }
+
+  async joinMatch(code) {
+    const status = this.add.text(400, 450, 'Connecting...', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(30);
+    try {
+      const result = await window.GutRush.PvPManager.joinMatch(code.trim().toUpperCase());
+      const { conn, peer, playerIdx, numPlayers } = result;
+      window.GutRush._pvpConn = conn;
+      window.GutRush._pvpPeer = peer;
+      if (numPlayers === 3) {
+        window.GutRush._pvpConns = [conn];
+        window.GutRush._pvpNumPlayers = 3;
+        window.GutRush._pvpMyIdx = playerIdx;
+        window.GutRush._pvpRecv = [];
+      } else {
+        window.GutRush._pvpRecv = null;
+      }
+      conn.on('data', (d) => {
+        if (numPlayers === 3) {
+          window.GutRush._pvpRecv[0] = d;
+        } else {
+          window.GutRush._pvpRecv = d;
+        }
+      });
+      window.GutRush._pvpIsHost = false;
+      window.GutRush.pvpCode = code.trim().toUpperCase();
+      window.GutRush.pvpMode = true;
+      status.destroy();
+      this.startGame();
+    } catch (e) {
+      status.setText(e.message);
+    }
+  }
+};
+
+window.GutRush.ShopScene = class ShopScene extends Phaser.Scene {
+  constructor() { super('ShopScene'); }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    this.cameras.main.fadeIn(300);
+    const w = 800, h = 600;
+    this.coins = 30;
+    this.cart = [];
+    this.foods = [...window.GutRush.FOODS];
+
+    // Subtle grid background
+    const bg = this.add.graphics();
+    bg.lineStyle(1, 0x1a2a3a, 0.15);
+    for (let x = 0; x < w; x += 40) { bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, h); bg.strokePath(); }
+    for (let y = 0; y < h; y += 40) { bg.beginPath(); bg.moveTo(0, y); bg.lineTo(w, y); bg.strokePath(); }
+
+    // Header background panel
+    const headerBg = this.add.graphics();
+    headerBg.fillStyle(0x0a0a1a, 0.85);
+    headerBg.fillRect(0, 0, w, 54);
+    headerBg.lineStyle(1, 0x2a3a5a, 0.4);
+    headerBg.beginPath(); headerBg.moveTo(0, 54); headerBg.lineTo(w, 54); headerBg.strokePath();
+
+    const titleStyle = { fontSize: '24px', fill: '#ff6b6b', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 };
+    this.add.text(w / 2, 11, 'GUT RUSH - Food Shop', titleStyle).setOrigin(0.5);
+
+    this.coinText = this.add.text(w / 2, 28, '', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Footer background panel
+    const footerBg = this.add.graphics();
+    footerBg.fillStyle(0x0a0a1a, 0.85);
+    footerBg.fillRect(0, 518, w, 82);
+    footerBg.lineStyle(1, 0x2a3a5a, 0.4);
+    footerBg.beginPath(); footerBg.moveTo(0, 518); footerBg.lineTo(w, 518); footerBg.strokePath();
+
+    this.cartText = this.add.text(10, 575, '', { fontSize: '13px', fill: '#ccc', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+    this.waterBtn = this.add.text(w / 2, 520, '[ Buy Water (-5 coins) ]', { fontSize: '16px', fill: '#64B5F6', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.waterBtn.on('pointerover', () => this.waterBtn.setFill('#90CAF9'));
+    this.waterBtn.on('pointerout', () => this.waterBtn.setFill('#64B5F6'));
+    this.waterBtn.on('pointerdown', () => this.buyWater());
+    this.startBtn = this.add.text(w / 2, 548, '[ Start Digestion! ]', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true });
+    this.readyBtn = null;
+    if (window.GutRush.pvpMode) {
+      this.readyBtn = this.add.text(680, 548, '[ Ready ]', { fontSize: '16px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true });
+      this.readyBtn.on('pointerdown', () => this.sendReady());
+    }
+    this.updateUI();
+
+    const catColors = {
+      'Vegetables': 0x4CAF50, 'Fruits': 0xFF9800, 'Junk Food': 0xf44336,
+      'Drinks': 0x2196F3, 'Grains': 0xCD853F, 'Legumes': 0x8BC34A, 'Fats/Seeds': 0xFFE0B2,
+      'Interactable': 0x9C27B0
+    };
+
+    const cols = 4;
+    const cardW = 180, cardH = 90;
+    const startX = 20, startY = 60;
+    const gapX = 10, gapY = 6;
+
+    // Scrollable container for cards
+    this.cardContainer = this.add.container(0, 0);
+
+    // Mask for scrollable region
+    const maskShape = this.make.graphics({ add: false });
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(0, 54, w, 465);
+    const mask = new Phaser.Display.Masks.GeometryMask(this, maskShape);
+    this.cardContainer.setMask(mask);
+
+    this.foodCards = [];
+    this.scrollY = 0;
+    this.scrollMax = 0;
+
+    this.foods.forEach((food, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (cardW + gapX);
+      const y = startY + row * (cardH + gapY);
+
+      const rg = this.add.graphics();
+      rg.fillStyle(0x16213e, 0.9);
+      rg.fillRoundedRect(x, y, cardW, cardH, 6);
+      rg.lineStyle(1, 0x0f3460, 1);
+      rg.strokeRoundedRect(x, y, cardW, cardH, 6);
+
+      // Category color bar
+      const catColor = catColors[food.cat] || 0x888888;
+      const catBar = this.add.graphics();
+      catBar.fillStyle(catColor, 0.8);
+      catBar.fillRoundedRect(x + 2, y + 2, cardW - 4, 14, 3);
+      const catText = this.add.text(x + cardW / 2, y + 9, food.cat, { fontSize: '14px', fill: '#fff', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+      // Food icon
+      const icon = this.add.graphics();
+      icon.fillStyle(catColor, 1);
+      icon.fillRoundedRect(x + 6, y + 20, 40, 40, 5);
+      icon.fillStyle(0xffffff, 0.15);
+      icon.fillRect(x + 10, y + 24, 32, 32);
+
+      // Food name
+      const nameText = this.add.text(x + 52, y + 22, food.name, { fontSize: '13px', fill: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+
+      // Cost with coin icon
+      const costText = this.add.text(x + 52, y + 52, `🪙 ${food.coins}`, { fontSize: '14px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+
+      // Description
+      const descBg = this.add.graphics();
+      descBg.fillStyle(0x000000, 0.5);
+      descBg.fillRoundedRect(x + 4, y + 66, cardW - 8, 20, 3);
+      const descText = this.add.text(x + 8, y + 68, food.desc || '', { fontSize: '12px', fill: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 0.5, wordWrap: { width: cardW - 16 } });
+
+      const hitArea = this.add.zone(x + cardW / 2, y + cardH / 2, cardW, cardH).setInteractive({ useHandCursor: true });
+
+      const ownedBadge = this.add.text(x + cardW - 14, y + cardH - 14, '', { fontSize: '14px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(1);
+
+      // Add all card elements to the container
+      this.cardContainer.add([rg, catBar, catText, icon, nameText, costText, descBg, descText, hitArea, ownedBadge]);
+
+      const card = { food, rg, catText, icon, nameText, costText, descText, hitArea, ownedBadge, x, y, cardW, cardH };
+      this.foodCards.push(card);
+
+      hitArea.on('pointerdown', () => this.buyFood(food, card));
+      const inView = () => y + (this.scrollY || 0) + cardH >= 54 && y + (this.scrollY || 0) <= 518;
+      hitArea.on('pointerover', () => { if (!inView()) return; rg.clear(); rg.fillStyle(0x1a3a5c, 0.9); rg.fillRoundedRect(x, y, cardW, cardH, 6); rg.lineStyle(1, 0x0f3460, 1); rg.strokeRoundedRect(x, y, cardW, cardH, 6); });
+      hitArea.on('pointerout', () => { if (!inView()) return; rg.clear(); rg.fillStyle(0x16213e, 0.9); rg.fillRoundedRect(x, y, cardW, cardH, 6); rg.lineStyle(1, 0x0f3460, 1); rg.strokeRoundedRect(x, y, cardW, cardH, 6); });
+    });
+
+    // Calculate max scroll
+    const totalRows = Math.ceil(this.foods.length / cols);
+    const totalHeight = startY + totalRows * (cardH + gapY);
+    const visibleHeight = 465;
+    this.scrollMax = Math.max(0, totalHeight - visibleHeight);
+
+    // Scroll via drag
+    this.input.on('pointermove', (pointer) => {
+      if (!pointer.isDown || this._dragStartY === undefined) return;
+      const delta = pointer.y - this._dragStartY;
+      if (Math.abs(delta) < 3) return;
+      this.scrollY = Phaser.Math.Clamp(this.scrollY - delta * 0.8, -this.scrollMax, 0);
+      this.cardContainer.y = this.scrollY;
+      this._dragStartY = pointer.y;
+    });
+
+    this.input.on('pointerdown', (pointer) => {
+      this._dragStartY = pointer.y;
+    });
+
+    this.input.on('pointerup', () => {
+      this._dragStartY = undefined;
+    });
+
+    // Scroll via mouse wheel
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+      this.scrollY = Phaser.Math.Clamp(this.scrollY - deltaY * 0.5, -this.scrollMax, 0);
+      this.cardContainer.y = this.scrollY;
+    });
+
+    // PvP ready/steal listener
+    if (window.GutRush.pvpMode && window.GutRush._pvpNumPlayers === 3) {
+      this._opponentReady = { 1: false, 2: false };
+      this._opponentFoods = { 1: [], 2: [] };
+      this._allReady = false;
+      (window.GutRush._pvpConns || [window.GutRush._pvpConn]).forEach((conn, idx) => {
+        if (!conn) return;
+        conn.on('data', (d) => {
+          if (d.type === 'ready') {
+            if (d.playerIdx === 0) { this._opponentReady[0] = true; return; }
+            this._opponentReady[d.playerIdx] = true;
+            this._opponentFoods[d.playerIdx] = d.foods;
+            if (this._readySent && this._opponentReady[1] && this._opponentReady[2] && window.GutRush._pvpIsHost) this.processPvPReady3P();
+          } else if (d.type === 'all_ready') {
+            this._allReady = true;
+            this.cart = d.foods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+            this.updateUI();
+            if (d.stolen) this.showStolenText(d.stolen);
+            if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
+            this.startBtn.removeAllListeners('pointerdown');
+            this.startBtn.on('pointerdown', () => this.startDigestion());
+          }
+        });
+      });
+    } else if (window.GutRush.pvpMode && window.GutRush._pvpConn) {
+      this._opponentReady = false;
+      this._opponentFoods = [];
+      window.GutRush._pvpConn.on('data', (d) => {
+        if (d.type === 'ready') {
+          this._opponentReady = true;
+          this._opponentFoods = d.foods;
+          if (this._readySent) this.processPvPReady();
+        } else if (d.type === 'all_ready') {
+          this._allReady = true;
+          this.cart = d.foods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+          this.updateUI();
+          if (d.stolen) this.showStolenText(d.stolen);
+          if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
+          this.startBtn.removeAllListeners('pointerdown');
+          this.startBtn.on('pointerdown', () => this.startDigestion());
+        }
+      });
+    }
+  }
+
+  updateUI() {
+    this.coinText.setText(`🪙 ${this.coins} coins`);
+    const waterCount = this.cart.filter(f => f.id === 'water').length;
+    this.waterBtn.setText(`[ Buy Water (-5 coins) ]${waterCount > 0 ? ` x${waterCount}` : ''}`);
+    if (this.cart.length === 0) {
+      this.cartText.setText('Cart: empty');
+    } else {
+      const counts = {};
+      this.cart.forEach(f => { counts[f.name] = (counts[f.name] || 0) + 1; });
+      const parts = Object.entries(counts).map(([n, c]) => c > 1 ? `${n} x${c}` : n);
+      this.cartText.setText(`Cart: ${parts.join(', ')}`);
+    }
+    this.startBtn.removeAllListeners('pointerdown');
+    this.startBtn.on('pointerdown', () => this.startDigestion());
+  }
+
+  buyWater() {
+    const waterItem = window.GutRush.FOODS.find(f => f.id === 'water');
+    if (!waterItem) return;
+    if (this.coins < waterItem.coins) {
+      const flash = this.add.text(this.coinText.x, this.coinText.y + 18, 'Not enough coins!', { fontSize: '13px', fill: '#f44336', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 1000, onComplete: () => flash.destroy() });
+      return;
+    }
+    this.coins -= waterItem.coins;
+    this.cart.push(waterItem);
+    this.updateUI();
+  }
+
+  buyFood(food, card) {
+    const ct = card.y + (this.scrollY || 0);
+    if (ct + card.cardH < 54 || ct > 518) return;
+    if (this.coins < food.coins) {
+      const flash = this.add.text(this.coinText.x, this.coinText.y + 18, 'Not enough coins!', { fontSize: '13px', fill: '#f44336', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 1000, onComplete: () => flash.destroy() });
+      return;
+    }
+    this.coins -= food.coins;
+    this.cart.push(food);
+    card.rg.clear();
+    card.rg.fillStyle(0x1a3a2e, 0.9);
+    card.rg.fillRoundedRect(card.x, card.y, card.cardW, card.cardH, 6);
+    card.rg.lineStyle(1, 0x0f3460, 1);
+    card.rg.strokeRoundedRect(card.x, card.y, card.cardW, card.cardH, 6);
+    const count = this.cart.filter(f => f.id === food.id).length;
+    card.ownedBadge.setText(count > 1 ? `x${count}` : '✓');
+    this.updateUI();
+  }
+
+  sendReady() {
+    if (!window.GutRush._pvpConn || this._readySent) return;
+    this._readySent = true;
+    if (this.readyBtn) this.readyBtn.setText('[ Sent ]').setFill('#aaa').disableInteractive();
+    const foodIds = this.cart.map(f => f.id);
+    if (window.GutRush._pvpNumPlayers === 3) {
+      const myIdx = window.GutRush._pvpMyIdx;
+      const conns = window.GutRush._pvpConns || [window.GutRush._pvpConn];
+      conns.forEach(c => { if (c) c.send({ type: 'ready', foods: foodIds, playerIdx: myIdx }); });
+      if (window.GutRush._pvpIsHost && this._opponentReady[1] && this._opponentReady[2]) this.processPvPReady3P();
+    } else {
+      window.GutRush._pvpConn.send({ type: 'ready', foods: foodIds });
+      if (this._opponentReady) this.processPvPReady();
+    }
+  }
+
+  processPvPReady() {
+    if (!window.GutRush._pvpIsHost) return;
+    this._allReady = true;
+    const myFoods = this.cart.map(f => f.id);
+    const oppFoods = [...this._opponentFoods];
+    const r = this.calcSteals(myFoods, oppFoods);
+    window.GutRush._pvpConn.send({ type: 'all_ready', foods: r.oppFoods, stolen: r.oppStolen });
+    this.cart = r.myFoods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+    this.updateUI();
+    if (r.myStolen) this.showStolenText(r.myStolen);
+    if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
+    this.startBtn.removeAllListeners('pointerdown');
+    this.startBtn.on('pointerdown', () => this.startDigestion());
+  }
+
+  processPvPReady3P() {
+    if (!window.GutRush._pvpIsHost) return;
+    this._allReady = true;
+    const myFoods = this.cart.map(f => f.id);
+    const p2Foods = [...(this._opponentFoods[1] || [])];
+    const p3Foods = [...(this._opponentFoods[2] || [])];
+    const r = this.calcSteals3P(myFoods, p2Foods, p3Foods);
+    const conns = window.GutRush._pvpConns || [];
+    if (conns[0]) conns[0].send({ type: 'all_ready', foods: r.p2Foods, stolen: r.p2Stolen });
+    if (conns[1]) conns[1].send({ type: 'all_ready', foods: r.p3Foods, stolen: r.p3Stolen });
+    this.cart = r.myFoods.map(id => window.GutRush.FOODS.find(f => f.id === id)).filter(Boolean);
+    this.updateUI();
+    if (r.myStolen) this.showStolenText(r.myStolen);
+    if (this.readyBtn) { this.readyBtn.setText('[ Ready ✓ ]').setFill('#4CAF50'); this.readyBtn.removeAllListeners('pointerdown'); }
+    this.startBtn.removeAllListeners('pointerdown');
+    this.startBtn.on('pointerdown', () => this.startDigestion());
+  }
+
+  calcSteals(myFoods, oppFoods) {
+    const findName = id => { const f = window.GutRush.FOODS.find(x => x.id === id); return f ? f.name : id; };
+    let myStolen = null, oppStolen = null;
+    const myFn = myFoods.filter(f => f === 'fanum_tax').length;
+    const oppFn = oppFoods.filter(f => f === 'fanum_tax').length;
+    for (let i = 0; i < myFn; i++) {
+      if (Math.random() < 0.2 && oppFoods.length > 0) {
+        const idx = Math.floor(Math.random() * oppFoods.length);
+        const stolenId = oppFoods.splice(idx, 1)[0];
+        myFoods.push(stolenId);
+        oppStolen = findName(stolenId);
+      }
+    }
+    for (let i = 0; i < oppFn; i++) {
+      if (Math.random() < 0.2 && myFoods.length > 0) {
+        const idx = Math.floor(Math.random() * myFoods.length);
+        const stolenId = myFoods.splice(idx, 1)[0];
+        oppFoods.push(stolenId);
+        myStolen = findName(stolenId);
+      }
+    }
+    return { myFoods: myFoods.filter(f => f !== 'fanum_tax'), oppFoods: oppFoods.filter(f => f !== 'fanum_tax'), myStolen, oppStolen };
+  }
+
+  calcSteals3P(myFoods, p2Foods, p3Foods) {
+    const findName = id => { const f = window.GutRush.FOODS.find(x => x.id === id); return f ? f.name : id; };
+    let myStolen = null, p2Stolen = null, p3Stolen = null;
+    const targets = [[1, 2], [0, 2], [0, 1]];
+    const lists = [myFoods, p2Foods, p3Foods];
+    const fnCounts = lists.map(arr => arr.filter(f => f === 'fanum_tax').length);
+    for (let self = 0; self < 3; self++) {
+      const choices = targets[self];
+      for (let i = 0; i < fnCounts[self]; i++) {
+        const target = choices[Math.floor(Math.random() * 2)];
+        const targetArr = lists[target];
+        if (Math.random() < 0.2 && targetArr.length > 0) {
+          const idx = Math.floor(Math.random() * targetArr.length);
+          const stolenId = targetArr.splice(idx, 1)[0];
+          lists[self].push(stolenId);
+          const foodName = findName(stolenId);
+          if (target === 0) myStolen = foodName;
+          else if (target === 1) p2Stolen = foodName;
+          else p3Stolen = foodName;
+        }
+      }
+    }
+    return {
+      myFoods: lists[0].filter(f => f !== 'fanum_tax'),
+      p2Foods: lists[1].filter(f => f !== 'fanum_tax'),
+      p3Foods: lists[2].filter(f => f !== 'fanum_tax'),
+      myStolen, p2Stolen, p3Stolen
+    };
+  }
+
+  showStolenText(foodName) {
+    const txt = this.add.text(400, 300, `STOLEN!!! ${foodName}`, { fontSize: '28px', fill: '#FF4444', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(50).setScale(0.2);
+    this.tweens.add({ targets: txt, scale: 1.4, duration: 600, ease: 'Back.easeOut', yoyo: true, hold: 800, onComplete: () => txt.destroy() });
+  }
+
+  startDigestion() {
+    this.cart = this.cart.filter(f => f.cat !== 'Interactable');
+    this.cameras.main.fadeOut(300, 10, 10, 30);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('EatScene', { foods: this.cart, coins: this.coins }));
+  }
+};
+
+window.GutRush.EatScene = class EatScene extends Phaser.Scene {
+  constructor() { super('EatScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.coinsLeft = data.coinsLeft || 0;
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    this.cameras.main.fadeIn(300);
+    const w = 800, h = 600;
+    this.currentIndex = 0;
+
+    this.add.text(w / 2, 30, 'Eating Time!', { fontSize: '34px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+
+    const faceG = this.add.graphics();
+    faceG.fillStyle(0xFFDBAC, 1);
+    faceG.fillCircle(w / 2, h / 2 - 40, 80);
+    faceG.fillStyle(0x000, 1);
+    faceG.fillCircle(w / 2 - 25, h / 2 - 55, 8);
+    faceG.fillCircle(w / 2 + 25, h / 2 - 55, 8);
+    faceG.fillStyle(0xFF6B6B, 1);
+    faceG.fillCircle(w / 2, h / 2 - 30, 10);
+    faceG.fillStyle(0x8B0000, 1);
+    faceG.fillRect(w / 2 - 30, h / 2 - 5, 60, 20);
+
+    this.foodNameText = this.add.text(w / 2, h - 80, '', { fontSize: '24px', fill: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5);
+    this.descText = this.add.text(w / 2, h - 50, '', { fontSize: '16px', fill: '#aaa', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+    this.progressText = this.add.text(w / 2, h - 20, '', { fontSize: '14px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+    if (this.foods.length > 0) {
+      this.showNextFood();
+    } else {
+      this.cameras.main.fadeOut(200, 10, 10, 30);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('DigestionScene', { foods: [], coinsLeft: this.coinsLeft }));
+    }
+  }
+
+  showNextFood() {
+    const w = 800, h = 600;
+    if (this.currentIndex >= this.foods.length) {
+      this.time.delayedCall(167, () => {
+        this.cameras.main.fadeOut(300, 10, 10, 30);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('DigestionScene', { foods: this.foods, coinsLeft: this.coinsLeft }));
+      });
+      return;
+    }
+
+    const food = this.foods[this.currentIndex];
+    this.foodNameText.setText(`Eating: ${food.name}`);
+    this.descText.setText(food.desc || '');
+    this.progressText.setText(`Food ${this.currentIndex + 1} of ${this.foods.length}`);
+
+    const colorMap = {
+      'Vegetables': 0x4CAF50, 'Fruits': 0xFF9800, 'Junk Food': 0xf44336,
+      'Drinks': 0x2196F3, 'Grains': 0xCD853F, 'Legumes': 0x8BC34A, 'Fats/Seeds': 0xFFE0B2
+    };
+    const color = colorMap[food.cat] || 0x888888;
+
+    const foodIcon = this.add.graphics();
+    foodIcon.fillStyle(color, 1);
+    foodIcon.fillRoundedRect(w / 2 - 24, h / 2 - 100, 48, 48, 6);
+    foodIcon.fillStyle(0xffffff, 0.2);
+    foodIcon.fillRect(w / 2 - 20, h / 2 - 96, 40, 40);
+
+    this.tweens.add({
+      targets: foodIcon,
+      y: 260,
+      alpha: 0,
+      scale: 0.3,
+      duration: 333,
+      ease: 'Power2',
+      onComplete: () => {
+        foodIcon.destroy();
+        this.currentIndex++;
+        this.time.delayedCall(67, () => this.showNextFood());
+      }
+    });
+  }
+};
+
+window.GutRush.DigestionScene = class DigestionScene extends Phaser.Scene {
+  constructor() { super('DigestionScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.coinsLeft = data.coinsLeft || 0;
+  }
+
+  create() {
+    this.digestionStartTime = Date.now();
+    this.cameras.main.setBackgroundColor('#0a0a1a');
+    this.cameras.main.fadeIn(300);
+    const w = 800, h = 600;
+    this.tapCount = 0;
+    this.canTap = true;
+
+    this.result = window.GutRush.DigestionEngine.calculate(this.foods);
+
+    // Subtle grid
+    const bg = this.add.graphics();
+    bg.lineStyle(1, 0x1a1a2a, 0.12);
+    for (let x = 0; x < w; x += 40) { bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, h); bg.strokePath(); }
+    for (let y = 0; y < h; y += 40) { bg.beginPath(); bg.moveTo(0, y); bg.lineTo(w, y); bg.strokePath(); }
+
+    // Body outline (torso silhouette)
+    const body = this.add.graphics();
+    body.fillStyle(0x2a1a0a, 0.12);
+    body.lineStyle(2, 0x4a3a2a, 0.3);
+    body.beginPath();
+    body.moveTo(310, 16);
+    body.lineTo(270, 20);
+    body.lineTo(230, 45);
+    body.lineTo(205, 100);
+    body.lineTo(195, 180);
+    body.lineTo(190, 280);
+    body.lineTo(195, 380);
+    body.lineTo(210, 460);
+    body.lineTo(240, 510);
+    body.lineTo(280, 550);
+    body.lineTo(330, 572);
+    body.lineTo(400, 578);
+    body.lineTo(470, 572);
+    body.lineTo(520, 550);
+    body.lineTo(560, 510);
+    body.lineTo(590, 460);
+    body.lineTo(605, 380);
+    body.lineTo(610, 280);
+    body.lineTo(605, 180);
+    body.lineTo(595, 100);
+    body.lineTo(570, 45);
+    body.lineTo(530, 20);
+    body.lineTo(490, 16);
+    body.closePath();
+    body.fillPath();
+    body.strokePath();
+    // Neck
+    body.lineStyle(2, 0x4a3a2a, 0.25);
+    body.beginPath();
+    body.moveTo(370, 16);
+    body.lineTo(385, -5);
+    body.lineTo(415, -5);
+    body.lineTo(430, 16);
+    body.strokePath();
+
+    this.organLabels = [];
+
+    const organs = [
+      { name: 'Mouth', y: 30, x: 400 },
+      { name: 'Pharynx', y: 52, x: 400 },
+      { name: 'Esophagus', y: 87, x: 400 },
+      { name: 'Cardia', y: 118, x: 370 },
+      { name: 'Stomach', y: 165, x: 330 },
+      { name: 'Pylorus', y: 225, x: 380 },
+      { name: 'Duodenum', y: 260, x: 440 },
+      { name: 'Jejunum', y: 305, x: 470 },
+      { name: 'Ileum', y: 360, x: 425 },
+      { name: 'Cecum', y: 410, x: 490 },
+      { name: 'Asc. Colon', y: 380, x: 530 },
+      { name: 'Trans. Colon', y: 290, x: 400 },
+      { name: 'Desc. Colon', y: 380, x: 270 },
+      { name: 'Sigmoid', y: 460, x: 270 },
+      { name: 'Rectum', y: 520, x: 400 },
+      { name: 'Anus', y: 555, x: 400 },
+    ];
+
+    const g = this.add.graphics();
+    const bold = { fontSize: '14px', fill: '#0f0', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 };
+    const medBold = { fontSize: '14px', fill: '#0f0', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 };
+    const bigBold = { fontSize: '13px', fill: '#0f0', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 };
+    const dim = { fontSize: '13px', fill: '#aa6', fontFamily: 'Arial, sans-serif', stroke: '#000', strokeThickness: 1 };
+
+    // === Mouth cavity ===
+    g.fillStyle(0x3a2a3a, 1);
+    g.fillEllipse(400, 30, 60, 28);
+    g.lineStyle(2, 0x6a3a4a, 0.7);
+    g.strokeEllipse(400, 30, 60, 28);
+    g.fillStyle(0x1a1a2e, 0.6);
+    g.fillEllipse(400, 30, 30, 12);
+    g.fillStyle(0x5a3a3a, 0.6);
+    g.fillCircle(386, 30, 3);
+    g.fillCircle(394, 28, 3);
+    g.fillCircle(402, 28, 3);
+    g.fillCircle(410, 30, 3);
+    g.lineStyle(1, 0x8a4a4a, 0.4);
+    g.fillCircle(400, 48, 8);
+
+    // === Pharynx ===
+    g.fillStyle(0x4a2a3a, 0.6);
+    g.fillCircle(400, 52, 10);
+    g.lineStyle(1, 0x6a3a4a, 0.5);
+    g.strokeCircle(400, 52, 10);
+    this.add.text(440, 52, 'Pharynx', medBold).setOrigin(0, 0.5);
+
+    // === Esophagus tube (with gentle curve and peristalsis waves) ===
+    g.lineStyle(10, 0x4a3a3a, 0.7);
+    g.beginPath();
+    g.moveTo(400, 57);
+    g.lineTo(400, 72);
+    g.lineTo(395, 82);
+    g.lineTo(398, 92);
+    g.lineTo(400, 112);
+    g.strokePath();
+    g.lineStyle(3, 0x6a4a4a, 0.4);
+    for (let y = 62; y < 112; y += 15) {
+      g.beginPath();
+      g.arc(398 + Math.sin(y * 0.1) * 3, y, 8, 0, Math.PI, false);
+      g.strokePath();
+    }
+    this.add.text(440, 90, 'Esophagus', medBold).setOrigin(0, 0.5);
+
+    // === Cardiac sphincter ===
+    g.lineStyle(3, 0xaa5555, 0.8);
+    g.beginPath();
+    g.arc(400, 121, 5, Math.PI, 0, false);
+    g.strokePath();
+
+    // === Stomach (textbook J-shape with rounded fundus and body) ===
+    g.fillStyle(0x5a2a2a, 0.5);
+    g.lineStyle(2, 0x8a3a3a, 0.8);
+    g.beginPath();
+    g.moveTo(385, 132);
+    g.arc(355, 140, 32, 0.1, Math.PI * 0.8, false);
+    g.lineTo(332, 178);
+    g.arc(342, 206, 26, Math.PI * 0.7, Math.PI * 1.2, false);
+    g.arc(368, 228, 20, Math.PI * 0.8, Math.PI * 1.7, false);
+    g.arc(378, 190, 22, Math.PI * 1.1, Math.PI * 1.9, true);
+    g.closePath();
+    g.fillPath();
+    g.strokePath();
+    // Rugae folds
+    g.lineStyle(1, 0x7a3a3a, 0.3);
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.arc(345, 155 + i * 14, 15, 0.3, Math.PI * 0.6, false);
+      g.strokePath();
+    }
+    this.add.text(365, 112, '→ Cardia', bold).setOrigin(0, 0.5);
+    this.add.text(345, 128, 'Fundus', bold).setOrigin(0.5);
+    this.add.text(350, 165, 'Body', bold).setOrigin(0.5);
+
+    // === Pyloric sphincter ===
+    g.lineStyle(3, 0xaa5555, 0.8);
+    g.beginPath();
+    g.arc(383, 235, 5, Math.PI, 0, false);
+    g.strokePath();
+    this.add.text(403, 235, '→ Pyloric Sphincter', bold).setOrigin(0, 0.5);
+
+    // === Duodenum (rounded C-shape) ===
+    g.lineStyle(6, 0x4a5a3a, 0.6);
+    g.beginPath();
+    g.moveTo(388, 238);
+    g.lineTo(410, 245);
+    g.lineTo(428, 255);
+    g.lineTo(440, 268);
+    g.lineTo(442, 282);
+    g.lineTo(435, 292);
+    g.strokePath();
+    g.lineStyle(2, 0x6a7a5a, 0.3);
+    g.beginPath();
+    g.moveTo(388, 238);
+    g.lineTo(410, 245);
+    g.lineTo(428, 255);
+    g.lineTo(440, 268);
+    g.lineTo(442, 282);
+    g.lineTo(435, 292);
+    g.strokePath();
+
+    // === Jejunum (rounded coiled loops, mid-left) ===
+    g.lineStyle(5, 0x4a6a3a, 0.5);
+    const jps = [
+      [462, 295], [480, 302], [485, 315], [475, 325], [460, 320],
+      [467, 335], [482, 345], [480, 358], [465, 362], [448, 355],
+    ];
+    g.beginPath();
+    g.moveTo(438, 290);
+    for (const p of jps) g.lineTo(p[0], p[1]);
+    g.strokePath();
+    g.lineStyle(1, 0x6a8a5a, 0.3);
+    g.beginPath();
+    g.moveTo(438, 290);
+    for (const p of jps) g.lineTo(p[0], p[1]);
+    g.strokePath();
+
+    // === Ileum (rounded coiled, lower right) ===
+    g.lineStyle(5, 0x4a6a3a, 0.5);
+    const ips = [
+      [445, 355], [430, 362], [418, 355], [420, 342], [433, 338],
+      [440, 350], [428, 368], [412, 372], [396, 370],
+    ];
+    g.beginPath();
+    g.moveTo(455, 350);
+    for (const p of ips) g.lineTo(p[0], p[1]);
+    g.strokePath();
+    g.lineStyle(1, 0x6a8a5a, 0.3);
+    g.beginPath();
+    g.moveTo(455, 350);
+    for (const p of ips) g.lineTo(p[0], p[1]);
+    g.strokePath();
+
+    // === Ileocecal valve ===
+    g.lineStyle(2, 0xaa5555, 0.7);
+    g.beginPath();
+    g.arc(398, 388, 4, Math.PI * 1.2, Math.PI * 1.8, false);
+    g.strokePath();
+    this.add.text(410, 398, 'Ileocecal Valve', { fontSize: '13px', fill: '#a55', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+    // === Cecum + Appendix ===
+    g.fillStyle(0x3a4a3a, 0.5);
+    g.fillCircle(495, 406, 16);
+    g.lineStyle(1, 0x5a6a5a, 0.6);
+    g.strokeCircle(495, 406, 16);
+    g.lineStyle(2, 0x4a5a4a, 0.5);
+    g.beginPath();
+    g.moveTo(483, 415);
+    g.lineTo(477, 424);
+    g.lineTo(482, 430);
+    g.strokePath();
+    this.add.text(510, 407, 'Cecum', medBold).setOrigin(0, 0.5);
+    this.add.text(473, 427, 'Appendix', { fontSize: '13px', fill: '#585', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+    // === Large intestine (haustra pattern) — curved path with rounded flexures ===
+    const thick = 16;
+    g.lineStyle(thick, 0x3a4a5a, 0.5);
+    g.beginPath();
+    g.moveTo(497, 410);
+    g.lineTo(515, 395);
+    g.lineTo(530, 375);
+    g.lineTo(530, 325);
+    g.lineTo(528, 305);
+    g.lineTo(520, 295);
+    g.lineTo(505, 290);
+    g.lineTo(480, 290);
+    g.lineTo(380, 290);
+    g.lineTo(295, 290);
+    g.lineTo(280, 295);
+    g.lineTo(272, 305);
+    g.lineTo(270, 325);
+    g.lineTo(270, 370);
+    g.lineTo(270, 440);
+    g.strokePath();
+    // Haustra (sacculation marks)
+    g.lineStyle(1, 0x4a5a6a, 0.2);
+    for (let x = 490; x <= 530; x += 8) {
+      g.beginPath(); g.arc(x, 398, 4, 0.3, Math.PI * 0.7, false); g.strokePath();
+    }
+    for (let y = 295; y <= 370; y += 8) {
+      g.beginPath(); g.arc(530, y, 4, Math.PI * 0.8, Math.PI * 1.2, false); g.strokePath();
+    }
+    for (let x = 280; x <= 520; x += 10) {
+      g.beginPath(); g.arc(x, 290, 4, Math.PI * 1.5, Math.PI * 1.9, false); g.strokePath();
+    }
+    for (let y = 295; y <= 430; y += 8) {
+      g.beginPath(); g.arc(270, y, 4, Math.PI * 1.2, Math.PI * 1.6, false); g.strokePath();
+    }
+    this.add.text(545, 355, 'Ascending', medBold).setOrigin(0, 0.5);
+    this.add.text(255, 355, 'Descending', medBold).setOrigin(1, 0.5);
+
+    // === Sigmoid colon (smooth S-curve) ===
+    g.lineStyle(14, 0x3a4a5a, 0.5);
+    g.beginPath();
+    g.moveTo(270, 440);
+    g.lineTo(268, 455);
+    g.lineTo(275, 468);
+    g.lineTo(290, 475);
+    g.lineTo(310, 472);
+    g.lineTo(335, 478);
+    g.lineTo(360, 490);
+    g.lineTo(380, 505);
+    g.strokePath();
+
+    // === Rectum (rounded) ===
+    g.fillStyle(0x3a2a3a, 0.5);
+    g.fillEllipse(400, 524, 42, 28);
+    g.lineStyle(2, 0x5a4a5a, 0.7);
+    g.strokeEllipse(400, 524, 42, 28);
+    // Rectal valves
+    g.lineStyle(1, 0x5a4a5a, 0.3);
+    g.beginPath();
+    g.moveTo(384, 518);
+    g.lineTo(416, 518);
+    g.strokePath();
+    g.beginPath();
+    g.moveTo(384, 526);
+    g.lineTo(416, 526);
+    g.strokePath();
+
+    // === Anal sphincter ===
+    g.lineStyle(3, 0xaa5555, 0.7);
+    g.strokeCircle(400, 553, 6);
+    g.fillStyle(0x2a1a1a, 0.5);
+    g.fillCircle(400, 553, 4);
+    this.add.text(420, 553, 'Anus', bold).setOrigin(0, 0.5);
+
+    // === Liver (right upper quadrant, rounded) ===
+    g.fillStyle(0x5a3a2a, 0.3);
+    g.beginPath();
+    g.moveTo(440, 105);
+    g.lineTo(475, 103);
+    g.lineTo(500, 108);
+    g.lineTo(518, 120);
+    g.lineTo(525, 135);
+    g.lineTo(518, 152);
+    g.lineTo(500, 164);
+    g.lineTo(480, 170);
+    g.lineTo(460, 170);
+    g.lineTo(442, 165);
+    g.lineTo(433, 152);
+    g.lineTo(432, 140);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(1, 0x6a4a3a, 0.4);
+    g.strokePath();
+    // Liver lobes
+    g.lineStyle(1, 0x5a4a3a, 0.2);
+    g.beginPath();
+    g.moveTo(480, 108);
+    g.lineTo(470, 165);
+    g.strokePath();
+    this.add.text(480, 130, 'Liver', { fontSize: '13px', fill: '#ca8', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5);
+    this.add.text(488, 143, 'R. lobe', dim).setOrigin(0.5);
+    this.add.text(458, 143, 'L. lobe', dim).setOrigin(0.5);
+
+    // === Gallbladder (under liver, rounded) ===
+    g.fillStyle(0x4a6a3a, 0.4);
+    g.fillEllipse(500, 175, 18, 26);
+    g.lineStyle(1, 0x5a8a4a, 0.5);
+    g.strokeEllipse(500, 175, 18, 26);
+    // Cystic duct (curved)
+    g.lineStyle(1, 0x5a8a4a, 0.3);
+    g.beginPath();
+    g.moveTo(500, 162);
+    g.lineTo(498, 155);
+    g.lineTo(490, 150);
+    g.lineTo(478, 150);
+    g.strokePath();
+    this.add.text(520, 175, 'Gallbladder', dim).setOrigin(0, 0.5);
+
+    // === Pancreas (behind stomach) ===
+    g.fillStyle(0x5a4a3a, 0.3);
+    g.beginPath();
+    g.moveTo(350, 250);
+    g.lineTo(395, 252);
+    g.lineTo(415, 255);
+    g.lineTo(422, 260);
+    g.lineTo(418, 268);
+    g.lineTo(375, 270);
+    g.lineTo(355, 270);
+    g.lineTo(348, 265);
+    g.lineTo(348, 258);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(1, 0x6a5a4a, 0.4);
+    g.strokePath();
+    // Pancreatic duct
+    g.lineStyle(1, 0x6a5a4a, 0.3);
+    g.beginPath();
+    g.moveTo(360, 260);
+    g.lineTo(425, 260);
+    g.strokePath();
+    this.add.text(390, 240, 'Pancreas', { fontSize: '14px', fill: '#ca8', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5);
+
+    // === Bile duct (curved path to duodenum) ===
+    g.lineStyle(1, 0x6a6a3a, 0.3);
+    g.beginPath();
+    g.moveTo(478, 150);
+    g.lineTo(468, 170);
+    g.lineTo(460, 200);
+    g.lineTo(450, 240);
+    g.lineTo(438, 258);
+    g.strokePath();
+    this.add.text(455, 215, '(bile duct)', { fontSize: '13px', fill: '#663', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5);
+
+    // === Full set of labels ===
+    this.organLabels = [];
+    const labelData = [
+      { x: 400, y: 8, n: 'Oral Cavity' },
+      { x: 400, y: 72, n: 'Pharynx & Esophagus' },
+      { x: 280, y: 170, n: 'Stomach' },
+      { x: 525, y: 255, n: 'Duodenum' },
+      { x: 505, y: 305, n: 'Jejunum' },
+      { x: 410, y: 380, n: 'Ileum' },
+      { x: 558, y: 395, n: 'Asc. Colon' },
+      { x: 400, y: 278, n: 'Trans. Colon' },
+      { x: 242, y: 395, n: 'Desc. Colon' },
+      { x: 260, y: 510, n: 'Sigmoid' },
+      { x: 400, y: 545, n: 'Rectum' },
+    ];
+    for (const ld of labelData) {
+      const lbl = this.add.text(ld.x, ld.y, ld.n, bigBold).setOrigin(0.5).setAlpha(0);
+      this.organLabels.push(lbl);
+    }
+
+    // Header text (drawn after organs so it's on top)
+    this.add.text(w / 2, 10, 'DIGESTIVE SYSTEM', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    const totalSecs = (60000 / this.result.transitSpeed / 1000).toFixed(0);
+    this.add.text(w / 2, 28, `~${totalSecs}s transit | Tap = -0.5s`, { fontSize: '14px', fill: '#aaa', fontFamily: 'Arial, sans-serif', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+    this.tapText = this.add.text(10, 580, 'Tap screen to speed up peristalsis!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', stroke: '#000', strokeThickness: 1 });
+
+    // === Bolus ===
+    this.bolusG = this.add.graphics();
+    this.bolusX = organs[0].x;
+    this.bolusY = organs[0].y;
+    this.bolusPath = organs;
+    this.pathProgress = 0;
+
+    this.totalTime = 60000 / this.result.transitSpeed;
+    this.elapsed = 0;
+    this.totalWater = this.result.totalWater || 0;
+    this._transitioning = false;
+    this._lastBolusSoundTime = 0;
+    this._lastCreakSoundTime = 0;
+    this._miniGameActive = false;
+
+    this.tapZone = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
+    this.tapZone.on('pointerdown', () => {
+      this.tapCount++;
+      this.elapsed += 500;
+      window.GutRush.SoundFX._ensure();
+      window.GutRush.SoundFX.randomSquelch();
+      if (!this._miniGameActive && Math.random() < 0.01 && !this._transitioning) {
+        this._miniGameActive = true;
+        this._elapsedBeforeMiniGame = this.elapsed;
+        const txt = this.add.text(400, 300, 'MINIGAME TRIGGERED', { fontSize: '32px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(50).setScale(0.3);
+        this.tweens.add({ targets: txt, scale: 1.2, duration: 500, ease: 'Cubic.easeOut', onComplete: () => {
+          txt.destroy();
+          const games = ['speedCheck', 'wirePuzzle', 'seqMemory'];
+          this[games[Math.floor(Math.random() * games.length)]]();
+        } });
+      }
+    });
+
+    this.time.addEvent({ delay: 16, loop: true, callback: () => this.updateBolus() });
+  }
+
+  updateBolus() {
+    this.elapsed += 16;
+    this.pathProgress = Math.min(1, this.elapsed / this.totalTime);
+    const remaining = Math.max(0, (this.totalTime - this.elapsed) / 1000);
+    this.tapText.setText(`Taps: ${this.tapCount} | ${remaining.toFixed(1)}s left`);
+
+    if (this.pathProgress >= 1) {
+      if (this._transitioning) return;
+      this._transitioning = true;
+      this.canTap = false;
+      this.tapText.setText('Proceeding to elimination...');
+      window.GutRush.SoundFX.randomPop();
+      this.time.delayedCall(800, () => {
+        this.cameras.main.fadeOut(300, 10, 10, 30);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('PopScene', { foods: this.foods, result: this.result, tapCount: this.tapCount, coinsLeft: this.coinsLeft, digestionStartTime: this.digestionStartTime }));
+      });
+      return;
+    }
+
+    const segs = this.bolusPath.length;
+    const fi = this.pathProgress * (segs - 1);
+    const iA = Math.floor(fi);
+    const iB = Math.min(iA + 1, segs - 1);
+    const t = fi - iA;
+    const pA = this.bolusPath[iA];
+    const pB = this.bolusPath[iB];
+
+    if (pA && pB && iA < segs) {
+      this.bolusX = Phaser.Math.Linear(pA.x, pB.x, t);
+      this.bolusY = Phaser.Math.Linear(pA.y, pB.y, t);
+      this.bolusG.clear();
+      const c = iA < 3 ? 0x8B6914 : iA < 6 ? 0x6B8B3A : iA < 10 ? 0x5D3A1A : 0x3a2a0a;
+      this.bolusG.fillStyle(c, 0.9);
+      this.bolusG.fillCircle(this.bolusX, this.bolusY, 7);
+
+      // Sound effects
+      if (this.time.now - this._lastBolusSoundTime > 350) {
+        window.GutRush.SoundFX.randomSquelch();
+        this._lastBolusSoundTime = this.time.now;
+      }
+      if ((iA === 4 || iA === 8) && this.time.now - this._lastCreakSoundTime > 1500) {
+        window.GutRush.SoundFX.randomCreak();
+        this._lastCreakSoundTime = this.time.now;
+      }
+
+      // Water droplets effect
+      if (this.totalWater > 0 && iA < 10) {
+        const dropCount = Math.min(5, Math.ceil(this.totalWater));
+        const fade = iA < 6 ? 0.6 : 0.3;
+        for (let d = 0; d < dropCount; d++) {
+          const angle = (d / dropCount) * Math.PI * 2 + this.elapsed * 0.001;
+          const dist = 12 + (d % 3) * 4;
+          this.bolusG.fillStyle(0x4488ff, fade * (1 - iA / 12));
+          this.bolusG.fillCircle(this.bolusX + Math.cos(angle) * dist, this.bolusY + Math.sin(angle * 0.7) * dist - 4, 3);
+        }
+      }
+
+      const labelMap = [0, 1, 1, 2, 2, 2, 3, 4, 5, 6, 6, 7, 8, 9, 10, 10];
+      if (iA >= 0 && iA < labelMap.length) {
+        const li = labelMap[iA];
+        if (li < this.organLabels.length) this.organLabels[li].setAlpha(Math.min(1, this.organLabels[li].alpha + 0.05));
+      }
+    }
+  }
+
+  _miniComplete(success) {
+    this._miniGameActive = false;
+    const remaining = (this.totalTime - this.elapsed) / 1000;
+    let msg, color;
+    if (success) {
+      const boost = (remaining * 0.1).toFixed(1);
+      this.elapsed += remaining * 0.1 * 1000;
+      msg = `✅ MINIGAME CLEAR! +${boost}s speed boost!`;
+      color = '#4CAF50';
+    } else {
+      this.elapsed = this._elapsedBeforeMiniGame;
+      const rem2 = (this.totalTime - this.elapsed) / 1000;
+      const penalty = (rem2 * 0.5).toFixed(1);
+      this.elapsed -= rem2 * 0.5 * 1000;
+      msg = `❌ FAILED! Reset + ${penalty}s time penalty!`;
+      color = '#f44336';
+    }
+    const ft = this.add.text(400, 300, msg, { fontSize: '18px', fill: color, fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: ft, alpha: 0, y: 280, duration: 2000, onComplete: () => ft.destroy() });
+  }
+
+  // 1. The Dreaded Speed Check
+  speedCheck() {
+    const w = 800, h = 600;
+    const g = this.add.graphics(); g.setDepth(30);
+    g.fillStyle(0x0a0a1a, 0.95); g.fillRect(0, 0, w, h); g.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+    const title = this.add.text(w / 2, 60, '💳 SWIPE YOUR CARD', { fontSize: '20px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
+    const hint = this.add.text(w / 2, 100, 'Tap when the indicator is in the GREEN zone!', { fontSize: '12px', fill: '#aaa', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(35);
+    const gaugeX = 100, gaugeY = 220, gaugeW = 600, gaugeH = 30;
+    const barG = this.add.graphics(); barG.setDepth(35);
+    barG.fillStyle(0x333333, 0.8); barG.fillRoundedRect(gaugeX, gaugeY, gaugeW, gaugeH, 6);
+    barG.fillStyle(0x2a6a3a, 0.6); barG.fillRect(gaugeX + gaugeW * 0.425, gaugeY, gaugeW * 0.15, gaugeH);
+    let pos = 0, dir = 1, speed = 0.025, stopped = false;
+    const marker = this.add.graphics(); marker.setDepth(36);
+    const result = this.add.text(w / 2, 300, '', { fontSize: '18px', fill: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
+    const timer = this.time.addEvent({ delay: 16, loop: true, callback: () => {
+      if (stopped) return;
+      pos += speed * dir;
+      if (pos >= 1 || pos <= 0) dir *= -1;
+      marker.clear();
+      marker.fillStyle(0xFFD700, 1);
+      marker.fillTriangle(gaugeX + pos * gaugeW - 6, gaugeY - 6, gaugeX + pos * gaugeW + 6, gaugeY - 6, gaugeX + pos * gaugeW, gaugeY + 6);
+      marker.fillRect(gaugeX + pos * gaugeW - 2, gaugeY, 4, gaugeH);
+    } });
+    const tapZone = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true }).setDepth(35);
+    tapZone.on('pointerdown', () => {
+      if (stopped) return;
+      stopped = true; timer.destroy();
+      const pct = pos;
+      if (pct >= 0.425 && pct <= 0.575) {
+        result.setText('✅ Good Read! +1s');
+        result.setFill('#4CAF50');
+        this.time.delayedCall(1000, () => { g.destroy(); title.destroy(); hint.destroy(); barG.destroy(); marker.destroy(); result.destroy(); tapZone.destroy(); this._miniComplete(true); });
+      } else if (pct < 0.425) {
+        result.setText('❌ Bad Read. Too Fast.');
+        result.setFill('#f44336');
+        this.time.delayedCall(1200, () => { g.destroy(); title.destroy(); hint.destroy(); barG.destroy(); marker.destroy(); result.destroy(); tapZone.destroy(); this._miniComplete(false); });
+      } else {
+        result.setText('❌ Bad Read. Too Slow.');
+        result.setFill('#f44336');
+        this.time.delayedCall(1200, () => { g.destroy(); title.destroy(); hint.destroy(); barG.destroy(); marker.destroy(); result.destroy(); tapZone.destroy(); this._miniComplete(false); });
+      }
+    });
+  }
+
+  // 2. Wire Puzzle
+  wirePuzzle() {
+    const w = 800, h = 600;
+    const g = this.add.graphics(); g.setDepth(30);
+    g.fillStyle(0x0a0a1a, 0.95); g.fillRect(0, 0, w, h); g.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+    const title = this.add.text(w / 2, 40, '🔌 WIRE PUZZLE', { fontSize: '20px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
+    const hint = this.add.text(w / 2, 70, 'Tap a wire on the left, then its match on the right', { fontSize: '12px', fill: '#aaa', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5).setDepth(35);
+    const colors = [0xff4444, 0x4488ff, 0xffdd44, 0xff44ff, 0x44ff88];
+    const colorNames = ['Red', 'Blue', 'Yellow', 'Magenta', 'Green'];
+    const leftOrder = [0, 1, 2, 3, 4];
+    const rightOrder = [0, 1, 2, 3, 4];
+    for (let i = leftOrder.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [leftOrder[i], leftOrder[j]] = [leftOrder[j], leftOrder[i]]; }
+    for (let i = rightOrder.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rightOrder[i], rightOrder[j]] = [rightOrder[j], rightOrder[i]]; }
+    const circles = [];
+    let selected = null, matched = 0, done = false;
+    const lineG = this.add.graphics(); lineG.setDepth(35);
+    const addCircle = (x, y, col, idx, side) => {
+      const c = this.add.graphics(); c.setDepth(36);
+      c.fillStyle(col, 1); c.fillCircle(x, y, 20);
+      c.lineStyle(2, 0xffffff, 0.5); c.strokeCircle(x, y, 20);
+      const label = this.add.text(x, y + 30, colorNames[idx], { fontSize: '11px', fill: '#ddd', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(36);
+      const zone = this.add.zone(x, y, 44, 44).setInteractive({ useHandCursor: true }).setDepth(37);
+      zone.on('pointerdown', () => {
+        if (done) return;
+        if (side === 'left') {
+          circles.forEach(c => { c[0].clear(); c[0].fillStyle(c[2], 1); c[0].fillCircle(c[3], c[4], 20); c[0].lineStyle(2, 0xffffff, 0.5); c[0].strokeCircle(c[3], c[4], 20); });
+          c.clear(); c.fillStyle(col, 1); c.fillCircle(x, y, 20); c.lineStyle(3, 0xffffff, 1); c.strokeCircle(x, y, 20);
+          selected = { idx, x, y, col };
+        } else if (side === 'right' && selected) {
+          if (selected.idx === idx) {
+            lineG.lineStyle(4, col, 0.8); lineG.beginPath(); lineG.moveTo(selected.x, selected.y); lineG.lineTo(x, y); lineG.strokePath();
+            matched++; circles.push([c, label, col, x, y]);
+            selected = null;
+            if (matched === 5) {
+              done = true;
+              const res = this.add.text(w / 2, 500, '✅ Circuits connected! +1s', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(40);
+              this.time.delayedCall(1000, () => { g.destroy(); res.destroy(); lineG.destroy(); title.destroy(); hint.destroy(); circles.forEach(c => { try { c[0].destroy(); c[1].destroy(); } catch {} }); this._miniComplete(true); });
+            }
+          } else {
+            selected = null;
+          }
+        }
+      });
+      circles.push([c, label, col, x, y]);
+    };
+    leftOrder.forEach((idx, i) => addCircle(100, 140 + i * 90, colors[idx], idx, 'left'));
+    rightOrder.forEach((idx, i) => addCircle(700, 140 + i * 90, colors[idx], idx, 'right'));
+  }
+
+  // 3. Sequence Memory (5 rounds)
+  seqMemory() {
+    const w = 800, h = 600;
+    const g = this.add.graphics(); g.setDepth(30);
+    g.fillStyle(0x0a0a1a, 0.95); g.fillRect(0, 0, w, h); g.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+    const title = this.add.text(w / 2, 30, '🧠 SEQUENCE MEMORY', { fontSize: '20px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
+    const statusTxt = this.add.text(w / 2, 60, '', { fontSize: '14px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(35);
+    const clean = () => { g.destroy(); title.destroy(); statusTxt.destroy(); btns.forEach(b => { b.bg.destroy(); b.zone.destroy(); }); };
+    const gridX = 285, gridY = 130, size = 70, gap = 10;
+    const btns = [], btnG = [];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const bx = gridX + c * (size + gap), by = gridY + r * (size + gap);
+        const bg = this.add.graphics(); bg.setDepth(36);
+        bg.fillStyle(0x1a3a6a, 0.9); bg.fillRoundedRect(bx, by, size, size, 6);
+        const zone = this.add.zone(bx + size / 2, by + size / 2, size, size).setInteractive({ useHandCursor: true }).setDepth(37);
+        btns.push({ bg, zone, bx, by, idx: r * 3 + c });
+        btnG.push(bg);
+      }
+    }
+    let sequence = [], playerIdx = 0, round = 0, playing = false, inputLocked = true;
+    const flash = (idx, cb) => {
+      const b = btns[idx];
+      b.bg.clear(); b.bg.fillStyle(0x66aaff, 1); b.bg.fillRoundedRect(b.bx, b.by, size, size, 6);
+      this.time.delayedCall(200, () => { b.bg.clear(); b.bg.fillStyle(0x1a3a6a, 0.9); b.bg.fillRoundedRect(b.bx, b.by, size, size, 6); if (cb) cb(); });
+    };
+    const playSeq = (cb) => {
+      playing = true; inputLocked = true;
+      let i = 0;
+      const next = () => {
+        if (i >= sequence.length) { playing = false; inputLocked = false; if (cb) cb(); return; }
+        flash(sequence[i], () => { this.time.delayedCall(150, next); });
+        i++;
+      };
+      next();
+    };
+    const nextRound = () => {
+      round++;
+      if (round > 5) {
+        statusTxt.setText('All rounds complete!');
+        const res = this.add.text(w / 2, 520, '✅ Memory mastered! +1s', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(40);
+        this.time.delayedCall(1000, () => { clean(); res.destroy(); this._miniComplete(true); });
+        return;
+      }
+      statusTxt.setText(`Round ${round}/5 — Watch the sequence...`);
+      sequence.push(Math.floor(Math.random() * 9));
+      playerIdx = 0;
+      this.time.delayedCall(500, () => playSeq(() => { statusTxt.setText(`Round ${round}/5 — Your turn!`); }));
+    };
+    btns.forEach(b => {
+      b.zone.on('pointerdown', () => {
+        if (inputLocked || playing) return;
+        flash(b.idx);
+        if (b.idx === sequence[playerIdx]) {
+          playerIdx++;
+          if (playerIdx >= sequence.length) nextRound();
+        } else {
+          statusTxt.setText('❌ Wrong!');
+          const res = this.add.text(w / 2, 520, '❌ Sequence failed -0.5s', { fontSize: '18px', fill: '#f44336', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(40);
+          this.time.delayedCall(1200, () => { clean(); res.destroy(); this._miniComplete(false); });
+        }
+      });
+    });
+    nextRound();
+  }
+};
+
+window.GutRush.SoundFX = {
+  _ctx: null,
+  _ensure() {
+    if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this._ctx.state === 'suspended') this._ctx.resume();
+  },
+  squelch() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const len = ctx.sampleRate * 0.12;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI * 10) * Math.exp(-p * 6) * 0.35;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 200; flt.Q.value = 3;
+    const gn = ctx.createGain(); gn.gain.value = 0.2;
+    src.connect(flt).connect(gn).connect(ctx.destination);
+    src.start(t);
+  },
+  pop() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(700, t + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(250, t + 0.12);
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+    osc.connect(gn).connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.18);
+  },
+  creak() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(55, t);
+    osc.frequency.linearRampToValueAtTime(35, t + 0.25);
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 120;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.25, t);
+    gn.gain.linearRampToValueAtTime(0.08, t + 0.25);
+    gn.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+    osc.connect(flt).connect(gn).connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.4);
+  },
+  whoosh() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const len = ctx.sampleRate * 0.35;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      d[i] = (Math.random() * 2 - 1) * (1 - p) * 0.4;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass';
+    flt.frequency.setValueAtTime(2500, t);
+    flt.frequency.exponentialRampToValueAtTime(80, t + 0.35);
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.25, t);
+    gn.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+    src.connect(flt).connect(gn).connect(ctx.destination);
+    src.start(t);
+  },
+  splash() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const len = ctx.sampleRate * 0.07;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < len; j++) {
+        const p = j / len;
+        d[j] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI * 4) * (1 - p) * 0.25;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const flt = ctx.createBiquadFilter();
+      flt.type = 'bandpass'; flt.frequency.value = 500 + i * 300; flt.Q.value = 4;
+      const gn = ctx.createGain(); gn.gain.value = 0.15;
+      src.connect(flt).connect(gn).connect(ctx.destination);
+      src.start(t + i * 0.08);
+    }
+    [523, 659, 784].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = f;
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.25, t + 0.25 + i * 0.1);
+      gn.gain.exponentialRampToValueAtTime(0.01, t + 0.5 + i * 0.1);
+      osc.connect(gn).connect(ctx.destination);
+      osc.start(t + 0.25 + i * 0.1);
+      osc.stop(t + 0.5 + i * 0.1);
+    });
+  },
+  squelch2() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const len = ctx.sampleRate * 0.1;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI * 6) * Math.exp(-p * 7) * 0.3;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 350; flt.Q.value = 2;
+    const gn = ctx.createGain(); gn.gain.value = 0.18;
+    src.connect(flt).connect(gn).connect(ctx.destination);
+    src.start(t);
+  },
+  squelch3() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const len = ctx.sampleRate * 0.15;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI * 14) * Math.exp(-p * 4) * 0.25;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 280; flt.Q.value = 4;
+    const gn = ctx.createGain(); gn.gain.value = 0.22;
+    src.connect(flt).connect(gn).connect(ctx.destination);
+    src.start(t);
+  },
+  creak2() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(70, t);
+    osc.frequency.linearRampToValueAtTime(50, t + 0.2);
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = 90;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.15, t);
+    gn.gain.linearRampToValueAtTime(0.05, t + 0.2);
+    gn.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+    osc.connect(flt).connect(gn).connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.35);
+  },
+  pop2() {
+    this._ensure();
+    const ctx = this._ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(900, t + 0.03);
+    osc.frequency.exponentialRampToValueAtTime(150, t + 0.15);
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.3, t);
+    gn.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    osc.connect(gn).connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.15);
+  },
+  randomSquelch() {
+    const r = Math.random();
+    if (r < 0.33) this.squelch();
+    else if (r < 0.66) this.squelch2();
+    else this.squelch3();
+  },
+  randomCreak() {
+    Math.random() < 0.5 ? this.creak() : this.creak2();
+  },
+  randomPop() {
+    Math.random() < 0.5 ? this.pop() : this.pop2();
+  }
+};
+
+window.GutRush.PopScene = class PopScene extends Phaser.Scene {
+  constructor() { super('PopScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.result = data.result || window.GutRush.DigestionEngine.calculate(this.foods);
+    this.tapCount = data.tapCount || 0;
+    this.coinsLeft = data.coinsLeft || 0;
+    this.digestionStartTime = data.digestionStartTime || Date.now();
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#0a0a0a');
+    this.cameras.main.fadeIn(300);
+    const w = 800, h = 600;
+    this.isHolding = false;
+    this.holdDuration = 0;
+    this.holdStart = 0;
+    this.popped = false;
+    this.egestionBristol = 0;
+    this.egestionSkill = 0;
+    this.round = 0;
+    this.maxRounds = 3;
+    this.roundSkills = [];
+    const diffRoll = Math.random();
+    if (diffRoll < 0.25) { this.speed = 2.0 + Math.random() * 0.5; this.difficulty = 'EASY'; }
+    else if (diffRoll < 0.75) { this.speed = 2.8 + Math.random() * 0.4; this.difficulty = 'NORMAL'; }
+    else { this.speed = 4.5 + Math.random() * 0.8; this.difficulty = 'HARD'; }
+    this._lastShakeTime = 0;
+    this._lastSquelchTime = 0;
+    this._lastCreakTime = 0;
+    this._lastWhooshTime = 0;
+
+    // Background: lower body silhouette
+    const bgG = this.add.graphics();
+    bgG.fillStyle(0x1a1a2a, 0.5);
+    bgG.beginPath();
+    bgG.moveTo(w / 2 - 70, h / 2 - 80);
+    bgG.lineTo(w / 2 - 110, h / 2 - 60);
+    bgG.lineTo(w / 2 - 120, h / 2 - 20);
+    bgG.lineTo(w / 2 - 120, h / 2 + 120);
+    bgG.lineTo(w / 2 - 115, h / 2 + 170);
+    bgG.lineTo(w / 2 - 100, h / 2 + 200);
+    bgG.lineTo(w / 2 - 60, h / 2 + 215);
+    bgG.lineTo(w / 2, h / 2 + 220);
+    bgG.lineTo(w / 2 + 60, h / 2 + 215);
+    bgG.lineTo(w / 2 + 100, h / 2 + 200);
+    bgG.lineTo(w / 2 + 115, h / 2 + 170);
+    bgG.lineTo(w / 2 + 120, h / 2 + 120);
+    bgG.lineTo(w / 2 + 120, h / 2 - 20);
+    bgG.lineTo(w / 2 + 110, h / 2 - 60);
+    bgG.lineTo(w / 2 + 70, h / 2 - 80);
+    bgG.closePath();
+    bgG.fillPath();
+
+    // Anus/rectum area graphic
+    const analG = this.add.graphics();
+    analG.lineStyle(3, 0x6a4a5a, 0.7);
+    analG.strokeCircle(w / 2, h / 2 + 50, 20);
+    analG.fillStyle(0x2a1a2a, 0.5);
+    analG.fillCircle(w / 2, h / 2 + 50, 16);
+
+    // Round indicator text
+    this.roundText = this.add.text(w / 2, 65, '', { fontSize: '15px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Title
+    this.add.text(w / 2, 20, 'Egestion Phase', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    const diffNames = { EASY: '#4CAF50', NORMAL: '#FF9800', HARD: '#f44336' };
+    this.add.text(w / 2, 42, `Difficulty: ${this.difficulty}`, { fontSize: '13px', fill: diffNames[this.difficulty] || '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+    this.add.text(w / 2, 60, 'Hold to pass stool — release at the right time!', { fontSize: '13px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Gauge background (full range 0-5s)
+    const gaugeX = w / 2 - 200, gaugeY = h / 2 + 120, gaugeW = 400, gaugeH = 20;
+    this.gaugeBg = this.add.graphics();
+    this.gaugeBg.fillStyle(0x333333, 0.8);
+    this.gaugeBg.fillRoundedRect(gaugeX, gaugeY, gaugeW, gaugeH, 6);
+    // Good zone (1.3-1.7 and 2.1-2.6 = blue)
+    const good1Start = gaugeX + (1.3 / 5) * gaugeW;
+    const good1W = (0.4 / 5) * gaugeW;
+    const good2Start = gaugeX + (2.1 / 5) * gaugeW;
+    const good2W = (0.5 / 5) * gaugeW;
+    this.gaugeBg.fillStyle(0x2a5a8a, 0.5);
+    this.gaugeBg.fillRect(good1Start, gaugeY, good1W, gaugeH);
+    this.gaugeBg.fillRect(good2Start, gaugeY, good2W, gaugeH);
+    // Ideal zone (1.7-2.1 = green, narrow)
+    const idealStart = gaugeX + (1.7 / 5) * gaugeW;
+    const idealW = (0.4 / 5) * gaugeW;
+    this.gaugeBg.fillStyle(0x2a8a3a, 0.7);
+    this.gaugeBg.fillRect(idealStart, gaugeY, idealW, gaugeH);
+    // Gauge labels
+    this.add.text(gaugeX, gaugeY + 24, '0s', { fontSize: '13px', fill: '#666', fontFamily: 'Arial, sans-serif' });
+    this.add.text(gaugeX + gaugeW / 2, gaugeY + 24, '2.5s', { fontSize: '13px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(0.5, 0);
+    this.add.text(gaugeX + gaugeW, gaugeY + 24, '5s', { fontSize: '13px', fill: '#666', fontFamily: 'Arial, sans-serif' }).setOrigin(1, 0);
+    this.add.text(idealStart + idealW / 2, gaugeY - 24, '★ IDEAL ★', { fontSize: '15px', fill: '#66FF66', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#004400', strokeThickness: 3 }).setOrigin(0.5);
+    this.add.text(good1Start + good1W / 2, gaugeY - 4, 'GOOD', { fontSize: '14px', fill: '#42A5F5', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+    this.add.text(good2Start + good2W / 2, gaugeY - 4, 'GOOD', { fontSize: '14px', fill: '#42A5F5', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Progress indicator (sliding marker on gauge)
+    this.gaugeMarker = this.add.graphics();
+
+    // Hold time text
+    this.holdTimeText = this.add.text(w / 2, h / 2 + 165, '', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Stool type indicator
+    this.stoolTypeText = this.add.text(w / 2, h / 2 + 185, '', { fontSize: '16px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    // Result text shown between rounds
+    this.resultText = this.add.text(w / 2, h / 2 + 80, '', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0);
+
+    // Stool graphics
+    this.stoolG = this.add.graphics();
+
+    // Status text (after release)
+    this.statusText = this.add.text(w / 2, h / 2 + 100, '', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setAlpha(0);
+
+    // Input
+    this.input.on('pointerdown', () => {
+      if (this.popped) return;
+      window.GutRush.SoundFX._ensure();
+      this.isHolding = true;
+      this.holdStart = this.time.now;
+      this._lastSquelchTime = this.time.now;
+      window.GutRush.SoundFX.randomSquelch();
+    });
+
+    this.input.on('pointerup', () => {
+      if (this.popped || !this.isHolding) return;
+      this.isHolding = false;
+      this.popped = true;
+      window.GutRush.SoundFX.randomPop();
+      this.finishEgesion();
+    });
+
+    // Timer
+    this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        if (this.popped) return;
+
+        if (this.isHolding) {
+          this.holdDuration = (this.time.now - this.holdStart) / 1000 * this.speed;
+
+          // Squelch sound at intervals
+          if (this.time.now - this._lastSquelchTime > 250) {
+            window.GutRush.SoundFX.randomSquelch();
+            this._lastSquelchTime = this.time.now;
+          }
+
+          if (this.holdDuration >= 5) {
+            this.popped = true;
+            this.isHolding = false;
+            this.finishEgesion();
+            return;
+          }
+
+          // Update gauge marker
+          this.gaugeMarker.clear();
+          const markerX = gaugeX + Math.min(this.holdDuration / 5, 1) * gaugeW;
+          this.gaugeMarker.fillStyle(0xFFD700, 1);
+          this.gaugeMarker.fillTriangle(markerX - 5, gaugeY - 4, markerX + 5, gaugeY - 4, markerX, gaugeY + 4);
+
+          // Update hold time
+          this.holdTimeText.setText(`${this.holdDuration.toFixed(1)}s`);
+
+          // Determine current bristol based on effective hold duration
+          let curBristol, curTypeName, curColor, curRating;
+          if (this.holdDuration < 0.5) {
+            curBristol = 1; curTypeName = 'Hard Pellets'; curColor = 0x5D3A1A; curRating = 'BAD';
+          } else if (this.holdDuration < 1.0) {
+            curBristol = 2; curTypeName = 'Lumpy Sausage'; curColor = 0x6B4A2A; curRating = 'BAD';
+          } else if (this.holdDuration < 1.3) {
+            curBristol = 3; curTypeName = 'Sausage w/ Cracks'; curColor = 0x7A5A3A; curRating = 'OK';
+          } else if (this.holdDuration < 1.7) {
+            curBristol = 4; curTypeName = 'Smooth Sausage'; curColor = 0x8B6B3B; curRating = 'GOOD';
+          } else if (this.holdDuration < 2.1) {
+            curBristol = 4; curTypeName = '★ Ideal Smooth ★'; curColor = 0x4CAF50; curRating = 'IDEAL';
+          } else if (this.holdDuration < 2.6) {
+            curBristol = 4; curTypeName = 'Smooth Sausage'; curColor = 0x8B6B3B; curRating = 'GOOD';
+          } else if (this.holdDuration < 3.2) {
+            curBristol = 5; curTypeName = 'Soft Blobs'; curColor = 0x8B7B4B; curRating = 'OK';
+          } else if (this.holdDuration < 4.0) {
+            curBristol = 6; curTypeName = 'Fluffy Pieces'; curColor = 0x9B8B5B; curRating = 'BAD';
+          } else {
+            curBristol = 7; curTypeName = 'Watery'; curColor = 0x9B8B6B; curRating = 'BAD';
+          }
+
+          this.stoolTypeText.setText(`${curRating} — Bristol ${curBristol}: ${curTypeName}`);
+          this.stoolTypeText.setFill(curRating === 'IDEAL' ? '#4CAF50' : curRating === 'GOOD' ? '#42A5F5' : curRating === 'OK' ? '#FF9800' : '#f44336');
+
+          // Draw stool emerging from anus — grows larger as arrow proceeds
+          this.stoolG.clear();
+          this.stoolG.fillStyle(curColor, 0.9);
+
+          const emergeY = h / 2 + 50;
+          const amount = Math.min(this.holdDuration / 2.5, 1.8);
+
+          if (this.holdDuration >= 3.8) {
+            // Near max — explosive diarrhea buildup
+            if (this.time.now - this._lastShakeTime > 150) {
+              this.cameras.main.shake(100, 0.005 * (this.holdDuration - 3.8));
+              this._lastShakeTime = this.time.now;
+            }
+            this.stoolG.fillStyle(0x9B7B4B, 0.8);
+            const blast = (this.holdDuration - 3.8) * 40;
+            this.stoolG.fillCircle(w / 2, emergeY - 10, 15 + blast);
+            this.stoolG.fillStyle(0x8B6914, 0.4);
+            this.stoolG.fillCircle(w / 2 + 10, emergeY + 15, 20 + blast * 0.8);
+            this.stoolG.fillCircle(w / 2 - 15, emergeY + 5, 12 + blast * 0.6);
+          } else if (curBristol === 1 || curBristol === 2) {
+            const pellets = curBristol === 1 ? 3 : 5;
+            for (let i = 0; i < pellets; i++) {
+              const px = w / 2 - 15 + i * 12;
+              const py = emergeY - 10 - i * 6 * amount;
+              this.stoolG.fillCircle(px, py, 5 + amount * 6);
+            }
+          } else if (curBristol === 3 || curBristol === 4) {
+            const len = 30 + amount * 50;
+            this.stoolG.fillRoundedRect(w / 2 - len / 2, emergeY - 18 - amount * 30, len, 14 + amount * 12, 6);
+          } else if (curBristol === 5 || curBristol === 6) {
+            const blobs = curBristol === 5 ? 4 : 6;
+            for (let i = 0; i < blobs; i++) {
+              this.stoolG.fillCircle(w / 2 - 20 + i * 12, emergeY - 8 - amount * 15, 6 + amount * 5);
+            }
+          } else {
+            this.stoolG.fillCircle(w / 2, emergeY - 5 - amount * 10, 10 + amount * 10);
+            this.stoolG.fillStyle(0x8B6914, 0.4);
+            this.stoolG.fillCircle(w / 2, emergeY + 10 + amount * 8, 15 + amount * 12);
+          }
+
+          if (this.holdDuration >= 4.0) {
+            this.stoolTypeText.setText('☠️ DIARRHEA EXPLOSION ☠️');
+            this.stoolTypeText.setFill('#FF0000');
+            if (this.time.now - this._lastWhooshTime > 800) {
+              window.GutRush.SoundFX.whoosh();
+              this._lastWhooshTime = this.time.now;
+            }
+          } else if (this.holdDuration >= 2.6 && this.holdDuration < 3.2) {
+            if (this.time.now - this._lastCreakTime > 700) {
+              window.GutRush.SoundFX.randomCreak();
+              this._lastCreakTime = this.time.now;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  finishEgesion() {
+    // Determine bristol type based on effective hold duration
+    if (this.holdDuration < 0.5) {
+      this.egestionBristol = 1;
+      this.egestionSkill = 0.3;
+      this.egestionRating = 'BAD';
+    } else if (this.holdDuration < 1.0) {
+      this.egestionBristol = 2;
+      this.egestionSkill = 0.5;
+      this.egestionRating = 'BAD';
+    } else if (this.holdDuration < 1.3) {
+      this.egestionBristol = 3;
+      this.egestionSkill = 1.5;
+      this.egestionRating = 'OK';
+    } else if (this.holdDuration < 1.7) {
+      this.egestionBristol = 4;
+      this.egestionSkill = 2.5;
+      this.egestionRating = 'GOOD';
+    } else if (this.holdDuration < 2.1) {
+      this.egestionBristol = 4;
+      this.egestionSkill = 3.5;
+      this.egestionRating = 'IDEAL';
+    } else if (this.holdDuration < 2.6) {
+      this.egestionBristol = 4;
+      this.egestionSkill = 2.5;
+      this.egestionRating = 'GOOD';
+    } else if (this.holdDuration < 3.2) {
+      this.egestionBristol = 5;
+      this.egestionSkill = 1.5;
+      this.egestionRating = 'OK';
+    } else if (this.holdDuration < 4.0) {
+      this.egestionBristol = 6;
+      this.egestionSkill = 0.8;
+      this.egestionRating = 'BAD';
+    } else {
+      this.egestionBristol = 7;
+      this.egestionSkill = 0.3;
+      this.egestionRating = 'DIARRHEA!';
+    }
+
+    this.roundSkills.push(this.egestionSkill);
+    this.round++;
+    this.holdTimeText.setText(`Round ${this.round}/${this.maxRounds}: ${this.holdDuration.toFixed(1)}s`);
+
+    const ratingColors = { 'IDEAL': '#4CAF50', 'GOOD': '#42A5F5', 'OK': '#FF9800', 'BAD': '#f44336', 'DIARRHEA!': '#FF0000' };
+    this.statusText.setText(this.egestionRating);
+    this.statusText.setFill(ratingColors[this.egestionRating] || '#fff');
+    this.statusText.setAlpha(1);
+
+    if (this.egestionRating === 'DIARRHEA!') {
+      this.cameras.main.shake(500, 0.03);
+    } else if (this.egestionRating === 'IDEAL' || this.egestionRating === 'GOOD') {
+      window.GutRush.SoundFX.splash();
+    }
+
+    if (this.round < this.maxRounds) {
+      this.roundText.setText(`Round ${this.round + 1} of ${this.maxRounds} — tap to start next`);
+      // Reset for next round after brief delay
+      this.time.delayedCall(1000, () => {
+        this.statusText.setAlpha(0);
+        this.stoolTypeText.setText('');
+        this.holdTimeText.setText(`Round ${this.round + 1}/${this.maxRounds} — hold!`);
+        this.stoolG.clear();
+        this.gaugeMarker.clear();
+        this.popped = false;
+        this.holdDuration = 0;
+        this.isHolding = false;
+      });
+    } else {
+      // All rounds done — proceed to ScoreScene
+      const avgSkill = this.roundSkills.reduce((a, b) => a + b, 0) / this.roundSkills.length;
+      this.resultText.setText(`Final score: ${avgSkill.toFixed(1)}`);
+      this.resultText.setAlpha(1);
+      this.time.delayedCall(1500, () => {
+        this.cameras.main.fadeOut(300, 10, 10, 30);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ScoreScene', {
+          foods: this.foods, result: this.result, tapCount: this.tapCount,
+          coinsLeft: this.coinsLeft, egestionSkill: avgSkill,
+          digestionStartTime: this.digestionStartTime
+        }));
+      });
+    }
+  }
+};
+
+window.GutRush.ScoreScene = class ScoreScene extends Phaser.Scene {
+  constructor() { super('ScoreScene'); }
+
+  init(data) {
+    this.foods = data.foods || [];
+    this.result = data.result || {};
+    this.tapCount = data.tapCount || 0;
+    this.coinsLeft = data.coinsLeft || 0;
+    this.egestionSkill = data.egestionSkill || 0;
+    this.digestionStartTime = data.digestionStartTime || Date.now();
+    this.totalElapsed = (Date.now() - this.digestionStartTime) / 1000;
+    this.score = window.GutRush.ScoreCalculator.calculate(this.result, this.tapCount, this.egestionSkill, this.totalElapsed);
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor('#1a1a2e');
+    this.cameras.main.fadeIn(300);
+    const w = 800, h = 600;
+
+    this.add.text(w / 2, 20, 'RESULTS', { fontSize: '34px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+
+    const totalCircleX = w / 2, totalCircleY = 100;
+    const circG = this.add.graphics();
+    circG.lineStyle(4, 0x333333, 1);
+    circG.strokeCircle(totalCircleX, totalCircleY, 40);
+    const pct = this.score.total / 100;
+    const scoreColor = this.score.total >= 80 ? 0x4CAF50 : this.score.total >= 50 ? 0xFF9800 : 0xf44336;
+    circG.lineStyle(4, scoreColor, 1);
+    circG.beginPath();
+    circG.arc(totalCircleX, totalCircleY, 40, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct, false);
+    circG.strokePath();
+    const scoreColorStr = this.score.total >= 80 ? '#4CAF50' : this.score.total >= 50 ? '#FF9800' : '#f44336';
+    this.add.text(totalCircleX, totalCircleY, `${this.score.total}`, { fontSize: '28px', fill: scoreColorStr, fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+
+    const grade = this.score.total >= 90 ? 'S' : this.score.total >= 80 ? 'A' : this.score.total >= 70 ? 'B' : this.score.total >= 60 ? 'C' : this.score.total >= 50 ? 'D' : 'F';
+    const gradeColors = { 'S': '#FFD700', 'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FF9800', 'D': '#FF6B00', 'F': '#f44336' };
+    this.add.text(w / 2, 145, `Grade: ${grade}`, { fontSize: '18px', fill: gradeColors[grade] || '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+
+    this.add.text(w / 2, 170, `Bristol Type: ${this.result.label || 'Unknown'}`, { fontSize: '16px', fill: '#ddd', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+
+    const startY = 210;
+    this.score.breakdown.forEach((item, i) => {
+      const y = startY + i * 40;
+      this.add.text(30, y, `${item.name}: ${item.score}/${item.max}`, { fontSize: '15px', fill: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+      const barBg = this.add.rectangle(250, y + 8, 200, 12, 0x333333).setOrigin(0, 0.5);
+      const barWidth = 200 * (item.score / item.max);
+      const barColor = (item.score / item.max) >= 0.7 ? 0x4CAF50 : (item.score / item.max) >= 0.4 ? 0xFF9800 : 0xf44336;
+      this.add.rectangle(250, y + 8, barWidth, 10, barColor).setOrigin(0, 0.5);
+      this.add.text(470, y, item.detail, { fontSize: '14px', fill: '#ccc', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1, wordWrap: { width: 300 } });
+    });
+
+    let yOffset = startY + 5 * 40 + 15;
+    this.add.text(w / 2, yOffset, '--- What Happened ---', { fontSize: '16px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    yOffset += 18;
+
+    const explanation = this.result.scoreLabel || 'No data';
+    this.add.text(w / 2, yOffset, explanation, { fontSize: '14px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1, wordWrap: { width: 700 }, align: 'center' }).setOrigin(0.5);
+    yOffset += 18;
+
+    const fiberTotal = this.result.totalFiber || 0;
+    const fatTotal = this.result.totalFat || 0;
+    const waterTotal = this.result.totalWater || 0;
+    const timeStr = this.totalElapsed >= 60 ? `${(this.totalElapsed / 60).toFixed(1)}m` : `${this.totalElapsed.toFixed(0)}s`;
+    this.add.text(w / 2, yOffset, `Fiber: ${fiberTotal.toFixed(1)}g | Fat: ${fatTotal.toFixed(1)}g | Water: ${waterTotal.toFixed(1)}x | Foods: ${this.foods.length} | Time: ${timeStr}`, {
+      fontSize: '14px', fill: '#ddd', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1
+    }).setOrigin(0.5);
+    yOffset += 18;
+
+    if (this.foods.length > 0) {
+      const foodList = this.foods.map(f => f.name).join(', ');
+      this.add.text(w / 2, yOffset, `Your meal: ${foodList}`, { fontSize: '13px', fill: '#aaa', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1, wordWrap: { width: 700 }, align: 'center' }).setOrigin(0.5);
+      yOffset += 16;
+    }
+
+    const idealFiber = 'Ideal: 20-30g fiber + water for Type 3-4 stool';
+    this.add.text(w / 2, yOffset, idealFiber, { fontSize: '14px', fill: '#66BB6A', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+    yOffset += 20;
+
+    this.add.text(w / 2, yOffset, '--- PvP Mode ---', { fontSize: '16px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    yOffset += 20;
+
+    this.pvpStatusText = this.add.text(w / 2, yOffset, '', { fontSize: '14px', fill: '#ddd', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 }).setOrigin(0.5);
+    this.pvpPanel = this.add.graphics();
+    this.pvpPanelTexts = [];
+    this._pvpDone = false;
+
+    const is3P = window.GutRush._pvpNumPlayers === 3;
+    if (window.GutRush.pvpMode && (window.GutRush._pvpConn || window.GutRush._pvpConns)) {
+      const conns = window.GutRush._pvpConns || [window.GutRush._pvpConn];
+      const isHost = window.GutRush._pvpIsHost;
+      const showWait = () => {
+        const label = is3P ? 'players' : 'opponent';
+        this.pvpStatusText.setText(`Waiting for ${label} to finish...`);
+        this.tweens.add({ targets: this.pvpStatusText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+      };
+      const showMatch = (match) => {
+        this._pvpDone = true;
+        this.tweens.killTweensOf(this.pvpStatusText);
+        this.pvpStatusText.setAlpha(1);
+        this.pvpStatusText.setText('Match complete!');
+        window.GutRush.pvpMode = false;
+        if (is3P) this.showPvPComparison3P(match);
+        else this.showPvPComparison(match);
+        this.time.delayedCall(400, () => {
+          const cleanup = () => {
+            if (window.GutRush._pvpPeer) { window.GutRush._pvpPeer.destroy(); window.GutRush._pvpPeer = null; }
+            if (window.GutRush._pvpConn) { window.GutRush._pvpConn = null; }
+            if (window.GutRush._pvpConns) { window.GutRush._pvpConns.forEach(c => { try { c.close(); } catch {} }); window.GutRush._pvpConns = null; }
+          };
+          this.add.text(w / 2 - 100, yOffset + 30, '[ Play Again ]', { fontSize: '18px', fill: '#4CAF50', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+            cleanup();
+            this.cameras.main.fadeOut(300, 10, 10, 30);
+            this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
+          });
+          this.add.text(w / 2 + 100, yOffset + 30, '[ Main Menu ]', { fontSize: '18px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+            cleanup();
+            this.cameras.main.fadeOut(300, 10, 10, 30);
+            this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('BootScene'));
+          });
+        });
+      };
+      const processMsg = (data) => {
+        if (!data || this._pvpDone) return;
+        if (isHost && data.type === 'score') {
+          if (is3P) {
+            if (!this._pvpScores) this._pvpScores = {};
+            this._pvpScores[data.playerIdx] = { name: data.name, score: data.score, breakdown: data.breakdown, result: data.result };
+            const p1 = this._pvpScores[1], p2 = this._pvpScores[2];
+            if (p1 && p2) {
+              const myName = window.GutRush.playerName || 'Player 1';
+              const match = {
+                player0: { name: myName, score: this.score.total, breakdown: this.score.breakdown, result: this.result },
+                player1: p1, player2: p2
+              };
+              showMatch(match);
+              conns.forEach(c => { if (c) c.send({ type: 'match', match }); });
+            }
+          } else {
+            const myName = window.GutRush.playerName || 'Player 1';
+            const match = {
+              player1: { name: myName, score: this.score.total, breakdown: this.score.breakdown, result: this.result },
+              player2: { name: data.name || 'Player 2', score: data.score, breakdown: data.breakdown, result: data.result }
+            };
+            showMatch(match);
+            conns[0].send({ type: 'match', match });
+          }
+        } else if (!isHost && data.type === 'match') {
+          showMatch(data.match);
+        }
+      };
+
+      // Process any already-buffered data (sent before we entered this scene)
+      if (is3P && Array.isArray(window.GutRush._pvpRecv)) {
+        window.GutRush._pvpRecv.forEach(d => processMsg(d));
+        window.GutRush._pvpRecv = [];
+      } else {
+        processMsg(window.GutRush._pvpRecv);
+        window.GutRush._pvpRecv = null;
+      }
+
+      if (isHost) {
+        conns.forEach(c => { if (c) c.on('data', processMsg); });
+        if (!this._pvpDone) showWait();
+      } else {
+        conns[0].send({ type: 'score', score: this.score.total, breakdown: this.score.breakdown, result: this.result, name: window.GutRush.playerName || 'Player 2', playerIdx: window.GutRush._pvpMyIdx });
+        conns[0].on('data', processMsg);
+        if (!this._pvpDone) showWait();
+      }
+    }
+
+    const isPvpLocal = !!window.GutRush._pvpConn || !!window.GutRush._pvpConns;
+    if (!isPvpLocal) {
+      const playAgain = this.add.text(w / 2, yOffset + 30, '[ Play Again ]', { fontSize: '20px', fill: '#e94560', fontFamily: 'Arial, sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10).setInteractive({ useHandCursor: true });
+      playAgain.on('pointerdown', () => {
+        this.cameras.main.fadeOut(300, 10, 10, 30);
+        this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('ShopScene'));
+      });
+    }
+  }
+
+  showPvPComparison(match) {
+    const w = 800, h = 600;
+    const cx = w / 2, py = 240;
+    const barW = 200, barH = 16;
+
+    this.pvpPanel.clear();
+    this.pvpPanel.lineStyle(1, 0x444466, 0.6);
+    this.pvpPanel.strokeRoundedRect(cx - 220, py - 10, 440, 100, 8);
+    this.pvpPanel.fillStyle(0x1a1a3a, 0.5);
+    this.pvpPanel.fillRoundedRect(cx - 220, py - 10, 440, 100, 8);
+
+    this.pvpPanelTexts.forEach(t => t.destroy());
+    this.pvpPanelTexts = [];
+
+    const p1 = match.player1, p2 = match.player2;
+    if (!p1 || !p2) return;
+
+    const maxScore = Math.max(p1.score, p2.score, 1);
+    const winner = window.GutRush.PvPManager.getWinner(match);
+    const gradeColor = s => s >= 80 ? '#4CAF50' : s >= 50 ? '#FF9800' : '#f44336';
+    const gradeColorInt = s => s >= 80 ? 0x4CAF50 : s >= 50 ? 0xFF9800 : 0xf44336;
+
+    const addPVP = (label, score, idx) => {
+      const y = py + 10 + idx * 34;
+      const txt = this.add.text(cx - 200, y, `${label}: ${score}`, { fontSize: '15px', fill: gradeColor(score), fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+      this.pvpPanelTexts.push(txt);
+      const barBg = this.add.rectangle(cx, y + 12, barW, barH, 0x333333).setOrigin(0, 0.5);
+      this.pvpPanelTexts.push(barBg);
+      const bar = this.add.rectangle(cx, y + 12, barW * (score / maxScore), barH - 2, gradeColorInt(score)).setOrigin(0, 0.5);
+      this.pvpPanelTexts.push(bar);
+    };
+
+    addPVP(p1.name, p1.score, 0);
+    addPVP(p2.name, p2.score, 1);
+
+    const resultTxt = this.add.text(cx + 150, py + 40, winner ? `Winner: ${winner.name}` : 'Tie!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    this.pvpPanelTexts.push(resultTxt);
+  }
+
+  showPvPComparison3P(match) {
+    const w = 800, h = 600;
+    const cx = w / 2, py = 240;
+    const barW = 200, barH = 16;
+
+    this.pvpPanel.clear();
+    this.pvpPanel.lineStyle(1, 0x444466, 0.6);
+    this.pvpPanel.strokeRoundedRect(cx - 220, py - 10, 440, 130, 8);
+    this.pvpPanel.fillStyle(0x1a1a3a, 0.5);
+    this.pvpPanel.fillRoundedRect(cx - 220, py - 10, 440, 130, 8);
+
+    this.pvpPanelTexts.forEach(t => t.destroy());
+    this.pvpPanelTexts = [];
+
+    const players = [match.player0, match.player1, match.player2].filter(Boolean);
+    if (players.length < 2) return;
+
+    const maxScore = Math.max(...players.map(p => p.score), 1);
+    const winner = window.GutRush.PvPManager.getWinner3P(match);
+    const gradeColor = s => s >= 80 ? '#4CAF50' : s >= 50 ? '#FF9800' : '#f44336';
+    const gradeColorInt = s => s >= 80 ? 0x4CAF50 : s >= 50 ? 0xFF9800 : 0xf44336;
+
+    const addPVP = (label, score, idx) => {
+      const y = py + 10 + idx * 34;
+      const txt = this.add.text(cx - 200, y, `${label}: ${score}`, { fontSize: '15px', fill: gradeColor(score), fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 1 });
+      this.pvpPanelTexts.push(txt);
+      const barBg = this.add.rectangle(cx, y + 12, barW, barH, 0x333333).setOrigin(0, 0.5);
+      this.pvpPanelTexts.push(barBg);
+      const bar = this.add.rectangle(cx, y + 12, barW * (score / maxScore), barH - 2, gradeColorInt(score)).setOrigin(0, 0.5);
+      this.pvpPanelTexts.push(bar);
+    };
+
+    players.forEach((p, i) => addPVP(p.name, p.score, i));
+
+    const resultTxt = this.add.text(cx + 150, py + 55, winner ? `Winner: ${winner.name}` : 'Tie!', { fontSize: '16px', fill: '#FFD700', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
+    this.pvpPanelTexts.push(resultTxt);
+  }
+};
+
+const config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: "game-container",
+  backgroundColor: "#1a1a2e",
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [
+    window.GutRush.BootScene,
+    window.GutRush.ShopScene,
+    window.GutRush.EatScene,
+    window.GutRush.DigestionScene,
+    window.GutRush.PopScene,
+    window.GutRush.ScoreScene,
+  ],
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
